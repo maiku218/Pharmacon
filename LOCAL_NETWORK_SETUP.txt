@@ -1,0 +1,117 @@
+==========================================
+PHARMACON LOCAL NETWORK SETUP GUIDE
+==========================================
+
+This guide explains how to connect 2 computers:
+- Computer 1: Admin (runs XAMPP + Database)
+- Computer 2: Cashier (connects to Computer 1's database)
+
+==========================================
+STEP 1: FIND YOUR IP ADDRESS (Computer 1)
+==========================================
+
+1. Press Windows key + R
+2. Type "cmd" and press Enter
+3. In the command prompt, type: ipconfig
+4. Look for "IPv4 Address" (example: 192.168.1.100)
+5. WRITE DOWN THIS IP ADDRESS - you'll need it later!
+
+==========================================
+STEP 2: CONFIGURE MYSQL (Computer 1)
+==========================================
+
+1. Go to: C:\xampp\mysql\bin\my.ini
+2. Right-click my.ini → Open with Notepad
+3. Find this section:
+   [mysqld]
+4. Under [mysqld], add this line:
+   bind-address=0.0.0.0
+5. Save the file
+6. Restart MySQL in XAMPP Control Panel
+
+==========================================
+STEP 3: GRANT DATABASE ACCESS (Computer 1)
+==========================================
+
+OPTION A: Using phpMyAdmin (recommended)
+1. Open browser, go to: http://localhost/phpmyadmin
+2. Click on "SQL" tab
+3. Paste this code:
+
+CREATE USER 'root'@'%' IDENTIFIED BY '';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+
+4. Click "Go" or "Execute"
+
+OPTION B: Using the app (alternative)
+1. Make sure app.py is running on Computer 1
+2. Open browser, go to: http://localhost/pharmacon/setup_remote_db
+3. You should see: "Database remote access granted!"
+4. Stop and restart the app
+
+==========================================
+STEP 4: SET UP COMPUTER 2 (Cashier)
+==========================================
+
+1. Copy the entire "pharmacon" folder to Computer 2
+
+2. Open app.py in the pharmacon folder on Computer 2
+
+3. Find these lines (around line 19-23):
+
+   app.config['MYSQL_HOST'] = 'localhost'
+   app.config['MYSQL_USER'] = 'root'
+   app.config['MYSQL_PASSWORD'] = ''
+   app.config['MYSQL_DB'] = 'pharmacon'
+
+4. CHANGE 'localhost' to Computer 1's IP address:
+
+   app.config['MYSQL_HOST'] = '192.168.1.100'  <-- Use YOUR IP from Step 1!
+
+5. Save app.py
+
+==========================================
+STEP 5: RUN THE APPS
+==========================================
+
+COMPUTER 1 (Admin):
+- Start XAMPP (Apache + MySQL)
+- Run: python app.py
+- Open: http://localhost/pharmacon/admin_login
+
+COMPUTER 2 (Cashier):
+- Open terminal in pharmacon folder
+- Run: python app.py
+- Open: http://localhost/pharmacon/cashier_login
+
+==========================================
+IMPORTANT NOTES
+==========================================
+
+1. Both computers MUST be on the same WiFi network
+
+2. Turn off Windows Firewall for MySQL (port 3306):
+   - Go to Windows Security → Firewall
+   - Allow an app through firewall
+   - Find MySQL and allow both
+
+3. If connection fails, check:
+   - MySQL is running on Computer 1
+   - IP address is correct
+   - Both computers on same network
+
+==========================================
+TROUBLESHOOTING
+==========================================
+
+ERROR: "Can't connect to MySQL server"
+- Check that MySQL is running on Computer 1
+- Verify the IP address is correct
+- Make sure Firewall allows MySQL port 3306
+
+ERROR: "Access denied"
+- Run the SQL commands in Step 3 again
+- Make sure you added the user 'root'@'%'
+
+==========================================

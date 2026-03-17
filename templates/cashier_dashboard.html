@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaCon POS - Cashier Dashboard</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-accent: #1e3a8a;
+            --glass: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --orange: #fb923c;
+            --green: #4ade80;
+            --red: #ef4444;
+            --text-muted: #94a3b8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        
+        body {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-accent) 100%);
+            height: 100vh;
+            color: white;
+            padding: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .glass {
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+        }
+
+        header {
+            padding: 15px 25px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .brand { font-weight: 900; font-size: 22px; letter-spacing: -1px; }
+        .brand span { color: var(--orange); }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 80px 1fr 350px;
+            gap: 20px;
+            flex-grow: 1;
+            height: calc(100vh - 120px);
+        }
+
+        nav {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 25px 0;
+            gap: 25px;
+        }
+        .nav-item {
+            width: 48px; height: 48px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 14px; cursor: pointer; transition: 0.3s;
+            fill: var(--text-muted); text-decoration: none;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.1); fill: white; }
+        .nav-item.active { background: var(--orange); fill: white; }
+        .nav-item.logout { margin-top: auto; fill: var(--red); }
+        .nav-item.logout:hover { background: rgba(239, 68, 68, 0.2); }
+
+        main { display: flex; flex-direction: column; gap: 20px; }
+
+        .top-bar { display: flex; gap: 20px; align-items: stretch; height: 70px; }
+        
+        .stat-card { flex: 1; padding: 12px 20px; display: flex; flex-direction: column; justify-content: center; }
+        .stat-label { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 22px; font-weight: 900; color: white; }
+
+        .search-container { flex: 2.5; position: relative; }
+        .search-box {
+            height: 100%; display: flex; align-items: center; 
+            padding: 0 20px; gap: 15px; border: 2px solid var(--orange);
+        }
+        .search-box input {
+            background: transparent; border: none; color: white; 
+            width: 100%; font-size: 18px; font-weight: 700; outline: none;
+        }
+
+        /* Selected Product Display */
+        .selected-product {
+            display: none;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid var(--green);
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-top: 10px;
+        }
+        .selected-product.show { display: block; }
+        .selected-product-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .selected-product-name { font-size: 18px; font-weight: bold; }
+        .selected-product-details { 
+            font-size: 14px; 
+            color: var(--text-muted); 
+            margin-top: 5px;
+        }
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .qty-btn {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: var(--orange);
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .qty-input {
+            width: 50px;
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            padding: 5px;
+        }
+        .add-to-cart-btn {
+            padding: 8px 20px;
+            background: var(--green);
+            border: none;
+            border-radius: 8px;
+            color: #0f172a;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Search Results Dropdown */
+        #search-results {
+            position: absolute; top: 75px; left: 0; right: 0;
+            z-index: 1000; max-height: 250px; overflow-y: auto;
+            display: none; background: #111827; border-radius: 15px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
+        .search-item {
+            padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer; display: flex; justify-content: space-between; transition: 0.2s;
+        }
+        .search-item:hover { background: var(--orange); }
+        .search-item:last-child { border: none; }
+        .search-item-name { font-weight: bold; }
+        .search-item-stock { font-size: 12px; color: var(--text-muted); }
+        .search-item-stock.low { color: var(--red); }
+
+        /* Cart Sidebar */
+        aside { padding: 25px; display: flex; flex-direction: column; }
+        .cart-list { flex-grow: 1; overflow-y: auto; margin: 15px 0; }
+        .cart-row {
+            background: rgba(255,255,255,0.05); padding: 12px;
+            border-radius: 12px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .cart-row-info { flex: 1; }
+        .cart-row-name { font-weight: 600; font-size: 14px; }
+        .cart-row-qty { font-size: 12px; color: var(--text-muted); }
+        .cart-row-price { font-weight: bold; color: var(--green); }
+        .cart-row-remove { 
+            background: var(--red); border: none; color: white; 
+            width: 24px; height: 24px; border-radius: 50%; 
+            cursor: pointer; font-size: 14px; margin-left: 10px;
+        }
+
+        .pay-btn {
+            width: 100%; padding: 18px; 
+            background: linear-gradient(to right, #fb923c, #ea580c);
+            border: none; border-radius: 16px; color: white;
+            font-size: 18px; font-weight: 900; cursor: pointer;
+        }
+        .pay-btn:active { transform: scale(0.97); }
+
+        /* Receipt Modal */
+        .receipt-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .receipt-modal.show { display: flex; }
+        
+        .receipt {
+            background: white;
+            color: #1e1e2f;
+            padding: 30px;
+            border-radius: 16px;
+            width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px dashed #ccc;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        .receipt-title { font-size: 24px; font-weight: bold; }
+        .receipt-subtitle { font-size: 12px; color: #666; }
+        .receipt-number { font-size: 14px; font-weight: bold; margin-top: 10px; }
+        .receipt-items { margin-bottom: 20px; }
+        .receipt-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        .receipt-item-qty { color: #666; }
+        .receipt-total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 15px 0;
+            border-top: 2px solid #1e1e2f;
+        }
+        .receipt-footer {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            padding-top: 20px;
+            border-top: 2px dashed #ccc;
+        }
+        .receipt-close {
+            width: 100%;
+            padding: 12px;
+            background: var(--orange);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="glass">
+        <div class="brand">PHARMA<span>CON</span></div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="background: rgba(74, 222, 128, 0.1); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(74, 222, 128, 0.2); display: flex; align-items: center; gap: 8px;">
+                <div style="width: 7px; height: 7px; background: var(--green); border-radius: 50%;"></div>
+                <span style="font-size: 10px; font-weight: 800; color: var(--green);">SYSTEM READY</span>
+            </div>
+            <span style="font-size: 14px;">Cashier: <b>{{ session['user'] }}</b></span>
+        </div>
+    </header>
+
+    <div class="dashboard-grid">
+        <nav class="glass">
+            <div class="nav-item active" title="Dashboard">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+            </div>
+            <a href="{{ url_for('cashier_history') }}" class="nav-item" title="Sales History">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            </a>
+            <div class="nav-item logout" onclick="handleLogout()" title="Log Out">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>
+            </div>
+        </nav>
+
+        <main>
+            <div class="top-bar">
+                <div class="glass stat-card">
+                    <span class="stat-label">Sales Today</span>
+                    <span class="stat-value">₱{{ "{:,.2f}".format(today_total or 0) }}</span>
+                </div>
+
+                <div class="search-container">
+                    <div class="glass search-box">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="var(--orange)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                        <input type="text" id="barcode-scanner" placeholder="SEARCH BY NAME OR BARCODE NUMBER..." autocomplete="off">
+                    </div>
+                    <div id="search-results" class="glass"></div>
+                    
+                    <!-- Selected Product Display -->
+                    <div id="selected-product" class="selected-product">
+                        <div class="selected-product-info">
+                            <div>
+                                <div id="sel-name" class="selected-product-name">Product Name</div>
+                                <div id="sel-details" class="selected-product-details">Price: ₱0.00 | Stock: 0</div>
+                            </div>
+                            <div class="quantity-controls">
+                                <button class="qty-btn" onclick="changeQty(-1)">-</button>
+                                <input type="number" id="sel-qty" class="qty-input" value="1" min="1">
+                                <button class="qty-btn" onclick="changeQty(1)">+</button>
+                                <button class="add-to-cart-btn" onclick="addSelectedToCart()">ADD</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass stat-card">
+                    <span class="stat-label">Transactions</span>
+                    <span class="stat-value">{{ today_count or 0 }}</span>
+                </div>
+            </div>
+        </main>
+
+        <aside class="glass">
+            <div style="font-size: 12px; font-weight: 900; color: var(--text-muted); letter-spacing: 1px;">CURRENT CART</div>
+            <div class="cart-list" id="cart-list"></div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                    <span style="font-weight: 900; font-size: 20px;">Total</span>
+                    <span style="font-size: 32px; font-weight: 900; color: var(--orange);">₱<span id="display-total">0.00</span></span>
+                </div>
+                <button class="pay-btn" onclick="completeSale()">COMPLETE SALE</button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Receipt Modal -->
+    <div id="receipt-modal" class="receipt-modal">
+        <div class="receipt">
+            <div class="receipt-header">
+                <div class="receipt-title">PHARMACON</div>
+                <div class="receipt-subtitle">A's PharmaHealth & Convenience</div>
+                <div class="receipt-number" id="receipt-number">REC-000000</div>
+                <div style="font-size: 12px; color: #666;" id="receipt-date">2024-01-01 00:00:00</div>
+            </div>
+            <div class="receipt-items" id="receipt-items">
+                <!-- Items will be added here -->
+            </div>
+            <div class="receipt-total">
+                <span>TOTAL</span>
+                <span>₱<span id="receipt-total">0.00</span></span>
+            </div>
+            <div class="receipt-footer">
+                <p>Thank you for your purchase!</p>
+                <p>Please come again.</p>
+            </div>
+            <button class="receipt-close" onclick="closeReceipt()">CLOSE</button>
+        </div>
+    </div>
+
+    <script>
+        const scanner = document.getElementById('barcode-scanner');
+        const resultsDiv = document.getElementById('search-results');
+        const selectedProduct = document.getElementById('selected-product');
+        
+        let cart = [];
+        let selectedProductData = null;
+
+        // Auto-focus logic
+        document.addEventListener('click', () => scanner.focus());
+        window.onload = () => { scanner.focus(); loadLiveProducts(); };
+
+        // Live product update every 5 seconds
+        function loadLiveProducts() {
+            fetch('/api/products')
+                .then(res => res.json())
+                .then(products => {
+                    window.allProducts = products; // Store for search
+                });
+        }
+        setInterval(loadLiveProducts, 5000); // Refresh every 5 seconds
+
+        // 1. Live Search Logic
+        scanner.addEventListener('input', function() {
+            const query = this.value;
+            if (query.length < 1) { 
+                resultsDiv.style.display = 'none'; 
+                selectedProduct.classList.remove('show');
+                return; 
+            }
+
+            fetch(`/search_product?q=${query}`)
+                .then(res => res.json())
+                .then(data => {
+                    resultsDiv.innerHTML = '';
+                    if (data.length > 0) {
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'search-item';
+                            const stockClass = item.stock <= 5 ? 'low' : '';
+                            div.innerHTML = `
+                                <div>
+                                    <div class="search-item-name">${item.name}</div>
+                                    <div class="search-item-stock ${stockClass}">${item.barcode} | Stock: ${item.stock} | Exp: ${item.expiry || 'N/A'}</div>
+                                </div>
+                                <div style="text-align:right"><b style="color:var(--green)">₱${item.price.toFixed(2)}</b></div>
+                            `;
+                            div.onclick = () => {
+                                selectProduct(item);
+                            };
+                            resultsDiv.appendChild(div);
+                        });
+                        resultsDiv.style.display = 'block';
+                    } else {
+                        resultsDiv.style.display = 'none';
+                    }
+                });
+        });
+
+        // 2. Barcode/Enter Logic
+        scanner.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const code = scanner.value;
+                if(code) {
+                    processScan(code);
+                    scanner.value = '';
+                    resultsDiv.style.display = 'none';
+                }
+            }
+        });
+
+        function selectProduct(product) {
+            selectedProductData = product;
+            document.getElementById('sel-name').innerText = product.name;
+            document.getElementById('sel-details').innerText = `Price: ₱${product.price.toFixed(2)} | Stock: ${product.stock}`;
+            document.getElementById('sel-qty').value = 1;
+            document.getElementById('sel-qty').max = product.stock;
+            
+            resultsDiv.style.display = 'none';
+            selectedProduct.classList.add('show');
+            scanner.value = '';
+        }
+
+        function changeQty(delta) {
+            const input = document.getElementById('sel-qty');
+            let val = parseInt(input.value) + delta;
+            if (val < 1) val = 1;
+            if (val > selectedProductData.stock) val = selectedProductData.stock;
+            input.value = val;
+        }
+
+        function addSelectedToCart() {
+            if (!selectedProductData) return;
+            
+            const qty = parseInt(document.getElementById('sel-qty').value);
+            
+            // Check if already in cart
+            const existingIndex = cart.findIndex(item => item.id === selectedProductData.id);
+            if (existingIndex >= 0) {
+                cart[existingIndex].quantity += qty;
+            } else {
+                cart.push({
+                    id: selectedProductData.id,
+                    name: selectedProductData.name,
+                    price: selectedProductData.price,
+                    quantity: qty
+                });
+            }
+            
+            renderCart();
+            selectedProduct.classList.remove('show');
+            selectedProductData = null;
+            scanner.focus();
+        }
+
+        function processScan(barcode) {
+            fetch(`/get_product/${barcode}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        showScannedDisplay(data.product);
+                        // Auto add to cart
+                        const existingIndex = cart.findIndex(item => item.id === data.product.id);
+                        if (existingIndex >= 0) {
+                            cart[existingIndex].quantity += 1;
+                        } else {
+                            cart.push({
+                                id: data.product.id,
+                                name: data.product.name,
+                                price: data.product.price,
+                                quantity: 1
+                            });
+                        }
+                        renderCart();
+                    }
+                });
+        }
+
+        function renderCart() {
+            const list = document.getElementById('cart-list');
+            list.innerHTML = '';
+            let total = 0;
+            
+            cart.forEach((item, index) => {
+                const subtotal = item.price * item.quantity;
+                total += subtotal;
+                const row = document.createElement('div');
+                row.className = 'cart-row';
+                row.innerHTML = `
+                    <div class="cart-row-info">
+                        <div class="cart-row-name">${item.name}</div>
+                        <div class="cart-row-qty">Qty: ${item.quantity} x ₱${item.price.toFixed(2)}</div>
+                    </div>
+                    <div class="cart-row-price">₱${subtotal.toFixed(2)}</div>
+                    <button class="cart-row-remove" onclick="removeFromCart(${index})">×</button>
+                `;
+                list.appendChild(row);
+            });
+            
+            document.getElementById('display-total').innerText = total.toFixed(2);
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            renderCart();
+        }
+
+        function completeSale() {
+            if (cart.length === 0) {
+                alert('Cart is empty!');
+                return;
+            }
+
+            fetch('/complete_sale', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: cart })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showReceipt(data);
+                    cart = [];
+                    renderCart();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+        }
+
+        function showReceipt(data) {
+            document.getElementById('receipt-number').innerText = data.receipt_number;
+            document.getElementById('receipt-date').innerText = data.date;
+            document.getElementById('receipt-total').innerText = data.total.toFixed(2);
+            
+            const itemsDiv = document.getElementById('receipt-items');
+            itemsDiv.innerHTML = '';
+            
+            data.items.forEach(item => {
+                itemsDiv.innerHTML += `
+                    <div class="receipt-item">
+                        <div>
+                            <div>${item.name}</div>
+                            <div class="receipt-item-qty">${item.quantity} x ₱${item.price.toFixed(2)}</div>
+                        </div>
+                        <div>₱${item.subtotal.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('receipt-modal').classList.add('show');
+        }
+
+        function closeReceipt() {
+            document.getElementById('receipt-modal').classList.remove('show');
+        }
+
+        function handleLogout() {
+            if(confirm("Logout from system? Cart will be cleared.")) {
+                window.location.href = "/logout";
+            }
+        }
+    </script>
+</body>
+</html>

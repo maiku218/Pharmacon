@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaCon | Admin Dashboard</title>
+    <style>
+        :root {
+            --bg-dark: #1e1e2f;
+            --bg-accent: #2c3e50;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --orange: #fb923c;
+            --red: transparent;
+            --green: #4ade80;
+            --text-main: #ffffff;
+            --text-muted: #a0aec0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+            background: linear-gradient(135deg, var(--bg-dark), var(--bg-accent));
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(15px);
+            display: flex;
+            flex-direction: column;
+            padding-top: 25px;
+            box-shadow: 5px 0 20px rgba(0,0,0,0.4);
+            border-right: 1px solid var(--glass-border);
+            z-index: 100;
+        }
+
+        .sidebar h2 { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            letter-spacing: 2px;
+            font-size: 22px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        
+        .sidebar h2 span { color: var(--orange); }
+
+        .nav-item { 
+            padding: 14px 25px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            border-right: 4px solid transparent;
+        }
+
+        .nav-item:hover { 
+            background: rgba(255,255,255,0.08); 
+            color: white;
+            padding-left: 35px; 
+        }
+
+        .nav-item.active { 
+            background: rgba(251, 146, 60, 0.15); 
+            color: var(--orange);
+            border-right: 4px solid var(--orange);
+        }
+
+        .submenu { 
+            display: none; 
+            flex-direction: column; 
+            background: rgba(0,0,0,0.3);
+            padding: 5px 0;
+        }
+
+        .submenu a { 
+            color: #cbd5e1; 
+            text-decoration: none; 
+            padding: 10px 25px 10px 50px; 
+            display: block; 
+            font-size: 14px; 
+            transition: 0.2s;
+        }
+
+        .submenu a:hover { 
+            background: rgba(255,255,255,0.05); 
+            color: white;
+        }
+
+        .submenu a.active { 
+            color: white; 
+            font-weight: bold;
+            background: rgba(255,255,255,0.03);
+        }
+
+        .content { 
+            flex: 1; 
+            padding: 40px; 
+            overflow-y: auto; 
+        }
+
+        .content-card {
+            background: white; 
+            color: #1e1e2f; 
+            padding: 35px; 
+            border-radius: 20px;
+            box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
+        }
+
+        .logout { 
+            margin-top: auto; 
+            color: var(--red);
+            border-top: 1px solid var(--glass-border);
+            text-decoration: none;
+        }
+        
+        .logout:hover { 
+            background: rgba(255, 77, 77, 0.1); 
+            padding-left: 35px; 
+        }
+
+        /* NOTIFICATION BELL */
+        .notification-container {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            z-index: 1000;
+        }
+
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+            padding: 5px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notification-bell svg {
+            width: 16px;
+            height: 16px;
+            fill: white;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--red);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notification-dropdown {
+            display: none;
+            position: absolute;
+            top: 50px;
+            right: 0;
+            width: 350px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1e293b;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .notification-dropdown.show {
+            display: block;
+        }
+
+        .notification-header {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-weight: bold;
+            color: white;
+        }
+
+        .notification-section {
+            padding: 10px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .notification-section h4 {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .notification-item {
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .notification-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .notification-item.low-stock {
+            border-left: 3px solid var(--red);
+        }
+
+        .notification-item.expiring {
+            border-left: 3px solid var(--orange);
+        }
+
+        .notification-item-name {
+            font-weight: 600;
+            color: white;
+            font-size: 14px;
+        }
+
+        .notification-item-detail {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .no-notifications {
+            padding: 30px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        /* CASHIER STATUS */
+        .cashier-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.online { background: var(--green); }
+        .status-dot.offline { background: var(--text-muted); }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<!-- Notification Bell -->
+<div class="notification-container">
+    <div class="notification-bell" onclick="toggleNotifications()">
+        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+        {% if low_stock_count + expiring_count > 0 %}
+        <span class="notification-badge">{{ low_stock_count + expiring_count }}</span>
+        {% endif %}
+    </div>
+    <div class="notification-dropdown" id="notificationDropdown">
+        <div class="notification-header">Notifications</div>
+        <div id="notificationList">
+            <div class="no-notifications">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<div class="sidebar">
+    <a href="{{ url_for('admin_dashboard') }}" style="text-decoration:none; color:white;">
+        <h2>PHARMA<span>CON</span></h2>
+    </a>
+
+    <div class="nav-item {% if active_main == 'dashboard' or not active_main or active_main == 'admin' %}active{% endif %}" onclick="toggleMenu('dash-menu')">
+        Dashboard
+    </div>
+    <div class="submenu" id="dash-menu" style="display: {% if active_main == 'dashboard' or not active_main or active_main == 'admin' %}flex{% else %}none{% endif %}">
+        <a href="{{ url_for('admin_dashboard') }}" class="{% if active_sub == 'monitoring' or active_main == 'admin' %}active{% endif %}">Activity Monitor</a>
+        <a href="{{ url_for('cashier_logs') }}" class="{% if active_sub == 'cashier_logs' %}active{% endif %}">Cashier Logs</a>
+    </div>
+    
+    <div class="nav-item {% if active_main == 'catalog' %}active{% endif %}" onclick="toggleMenu('catalog-menu')">
+        Catalog
+    </div>
+    <div class="submenu" id="catalog-menu" style="display: {% if active_main == 'catalog' %}flex{% else %}none{% endif %}">
+        <a href="{{ url_for('all_products') }}" class="{% if active_sub == 'all_products' %}active{% endif %}">All Products</a>
+        <a href="{{ url_for('add_product') }}" class="{% if active_sub == 'add_product' %}active{% endif %}">Add Product</a>
+    </div>
+
+    <div class="nav-item {% if active_main == 'sales' %}active{% endif %}" onclick="toggleMenu('sales-menu')">
+        Sales Reports
+    </div>
+    <div class="submenu" id="sales-menu" style="display: {% if active_main == 'sales' %}flex{% else %}none{% endif %}">
+        <a href="{{ url_for('sales_dashboard') }}" class="{% if active_sub == 'sales_dashboard' %}active{% endif %}">Sales Dashboard</a>
+        <a href="{{ url_for('medical_sales') }}" class="{% if active_sub == 'medical_sales' %}active{% endif %}">Medical Sales</a>
+        <a href="{{ url_for('non_medical_sales') }}" class="{% if active_sub == 'non_medical_sales' %}active{% endif %}">Non-Medical Sales</a>
+    </div>
+
+    <div class="nav-item {% if active_main == 'inventory' %}active{% endif %}" onclick="toggleMenu('inv-menu')">
+        Inventory
+    </div>
+    <div class="submenu" id="inv-menu" style="display: {% if active_main == 'inventory' %}flex{% else %}none{% endif %}">
+        <a href="{{ url_for('out_of_stock') }}" class="{% if active_sub == 'out_of_stock' %}active{% endif %}">Low Stock Alerts</a>
+        <a href="{{ url_for('expiring_medical') }}" class="{% if active_sub == 'expiring_medical' %}active{% endif %}">Expiring Alerts</a>
+    </div>
+
+    <div class="nav-item {% if active_main == 'management' %}active{% endif %}" onclick="toggleMenu('admin-menu')">
+        Management
+    </div>
+    <div class="submenu" id="admin-menu" style="display: {% if active_main == 'management' %}flex{% else %}none{% endif %}">
+        <a href="{{ url_for('register_cashier') }}" class="{% if active_sub == 'register_cashier' %}active{% endif %}">Register Cashier</a>
+        <a href="{{ url_for('delete_cashier') }}" class="{% if active_sub == 'delete_cashier' %}active{% endif %}">Manage Staff</a>
+        <a href="{{ url_for('change_admin_password') }}" class="{% if active_sub == 'change_admin_password' %}active{% endif %}">Security Settings</a>
+    </div>
+
+    <a href="/logout" class="nav-item logout">Logout</a>
+</div>
+
+<div class="content">
+    {% block content %}
+    <div class="content-card">
+        <h1 style="margin: 0 0 10px 0;">Welcome back, Admin! 👋</h1>
+        <p style="color: #666; font-size: 16px;">
+            Manage your pharmacy operations effectively. Select a category from the sidebar to view detailed reports or manage inventory.
+        </p>
+
+        <!-- Active Cashiers Section -->
+        <div style="margin-top: 30px;">
+            <h3 style="color: #1e1e2f; margin-bottom: 15px;">Cashier Status</h3>
+            {% if active_cashiers %}
+                {% for cashier in active_cashiers %}
+                <div class="cashier-status">
+                    <div class="status-dot online"></div>
+                    <div>
+                        <strong>{{ cashier[1] }}</strong> ({{ cashier[2] }})
+                        {% if cashier[3] %}
+                        <span style="font-size: 12px; color: #666;">- Logged in at {{ cashier[3].strftime('%H:%M') }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #666;">No cashiers currently online</p>
+            {% endif %}
+        </div>
+
+        <!-- Activity Logs -->
+        <div style="margin-top: 30px;">
+            <h3 style="color: #1e1e2f; margin-bottom: 15px;">Recent Activity</h3>
+            {% if activity_logs %}
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #eee;">
+                        <th style="text-align: left; padding: 10px; color: #666;">Cashier</th>
+                        <th style="text-align: left; padding: 10px; color: #666;">Login Time</th>
+                        <th style="text-align: left; padding: 10px; color: #666;">Logout Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in activity_logs %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px;">{{ log[0] }} ({{ log[1] }})</td>
+                        <td style="padding: 10px;">{{ log[2].strftime('%Y-%m-%d %H:%M') if log[2] else '-' }}</td>
+                        <td style="padding: 10px;">{{ log[3].strftime('%Y-%m-%d %H:%M') if log[3] else 'Still Online' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: #666;">No activity logs yet</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endblock %}
+</div>
+
+<script>
+    function toggleMenu(id) {
+        document.getElementById(id).style.display = document.getElementById(id).style.display === "flex" ? "none" : "flex";
+    }
+
+    function toggleNotifications() {
+        const dropdown = document.getElementById('notificationDropdown');
+        dropdown.classList.toggle('show');
+        
+        if (dropdown.classList.contains('show')) {
+            loadNotifications();
+        }
+    }
+
+    function loadNotifications() {
+        fetch('/api/notifications')
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById('notificationList');
+                let html = '';
+                
+                // Low Stock
+                if (data.low_stock.length > 0) {
+                    html += '<div class="notification-section">';
+                    html += '<h4>Low Stock</h4>';
+                    data.low_stock.forEach(item => {
+                        html += `<div class="notification-item low-stock" onclick="window.location.href='/out_of_stock'">
+                            <div class="notification-item-name">${item.name}</div>
+                            <div class="notification-item-detail">Stock: ${item.stock} | Barcode: ${item.barcode}</div>
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+                
+                // Expiring
+                if (data.expiring.length > 0) {
+                    html += '<div class="notification-section">';
+                    html += '<h4>Expiring Soon</h4>';
+                    data.expiring.forEach(item => {
+                        html += `<div class="notification-item expiring" onclick="window.location.href='/expiring_medical'">
+                            <div class="notification-item-name">${item.name}</div>
+                            <div class="notification-item-detail">Expires: ${item.expiry} | Barcode: ${item.barcode}</div>
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+                
+                if (!html) {
+                    html = '<div class="no-notifications">No notifications</div>';
+                }
+                
+                list.innerHTML = html;
+            });
+    }
+
+    // Close notification dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const container = document.querySelector('.notification-container');
+        if (!container.contains(e.target)) {
+            document.getElementById('notificationDropdown').classList.remove('show');
+        }
+    });
+</script>
+
+</body>
+</html>

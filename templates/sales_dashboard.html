@@ -1,0 +1,124 @@
+{% extends 'admin_dashboard.html' %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="content-card" style="padding: 20px;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <div>
+            <h1 style="margin: 0; letter-spacing: 1px; color: #2c3e50; font-size: 24px;">Sales Dashboard</h1>
+            <p style="margin: 5px 0 0 0; opacity: 0.7; color: #34495e;">Overview of all sales performance</p>
+        </div>
+    </div>
+
+    <!-- Sales Summary Cards -->
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 30px;">
+        
+        <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
+            <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Today</div>
+            <div style="font-size: 24px; font-weight: 900; color: #fb923c; margin: 10px 0;">₱{{ "%.2f"|format(daily_sales) }}</div>
+            <div style="font-size: 12px; color: #94a3b8;">{{ daily_count }} transactions</div>
+        </div>
+
+        <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
+            <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">This Week</div>
+            <div style="font-size: 24px; font-weight: 900; color: #4ade80; margin: 10px 0;">₱{{ "%.2f"|format(weekly_sales) }}</div>
+            <div style="font-size: 12px; color: #94a3b8;">{{ weekly_count }} transactions</div>
+        </div>
+
+        <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
+            <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">This Month</div>
+            <div style="font-size: 24px; font-weight: 900; color: #60a5fa; margin: 10px 0;">₱{{ "%.2f"|format(monthly_sales) }}</div>
+            <div style="font-size: 12px; color: #94a3b8;">{{ monthly_count }} transactions</div>
+        </div>
+
+        <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
+            <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">This Year</div>
+            <div style="font-size: 24px; font-weight: 900; color: #a78bfa; margin: 10px 0;">₱{{ "%.2f"|format(yearly_sales) }}</div>
+            <div style="font-size: 12px; color: #94a3b8;">{{ yearly_count }} transactions</div>
+        </div>
+
+        <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
+            <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Overall</div>
+            <div style="font-size: 24px; font-weight: 900; color: #f472b6; margin: 10px 0;">₱{{ "%.2f"|format(overall_sales) }}</div>
+            <div style="font-size: 12px; color: #94a3b8;">{{ overall_count }} transactions</div>
+        </div>
+
+    </div>
+
+    <!-- Charts Row -->
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+        
+        <!-- Daily Sales Chart -->
+        <div class="glass" style="padding: 25px; border-radius: 16px;">
+            <h3 style="margin: 0 0 20px 0; font-size: 16px; color: white;">Daily Sales (Last 30 Days)</h3>
+            <canvas id="salesChart" height="150"></canvas>
+        </div>
+
+        <!-- Popular Products -->
+        <div class="glass" style="padding: 25px; border-radius: 16px;">
+            <h3 style="margin: 0 0 20px 0; font-size: 16px; color: white;">Top Selling Products</h3>
+            <div style="max-height: 250px; overflow-y: auto;">
+                {% for p in popular %}
+                <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px;">{{ p[0] }}</div>
+                        <div style="font-size: 12px; color: #94a3b8;">{{ p[1] }} sold</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 900; color: #4ade80;">₱{{ "%.2f"|format(p[2]) }}</div>
+                    </div>
+                </div>
+                {% else %}
+                <p style="text-align: center; color: #94a3b8; padding: 20px;">No sales data yet</p>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+const ctx = document.getElementById('salesChart');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels | tojson }},
+        datasets: [{
+            label: 'Daily Sales (₱)',
+            data: {{ chart_values | tojson }},
+            borderColor: '#fb923c',
+            backgroundColor: 'rgba(251,146,60,0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { labels: { color: 'white' } }
+        },
+        scales: {
+            x: {
+                ticks: { color: 'white' },
+                grid: { color: 'rgba(255,255,255,0.05)' }
+            },
+            y: {
+                ticks: { color: 'white' },
+                grid: { color: 'rgba(255,255,255,0.05)' }
+            }
+        }
+    }
+});
+</script>
+
+<style>
+.glass {
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255,255,255,0.12);
+}
+</style>
+{% endblock %}
