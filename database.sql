@@ -24,13 +24,25 @@ CREATE TABLE IF NOT EXISTS cashiers (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Cashier Activity (login/logout tracking)
+-- Cashier Activity (login/logout tracking) - UPDATED with IP address
 CREATE TABLE IF NOT EXISTS cashier_activity (
     id INT AUTO_INCREMENT PRIMARY KEY,
     cashier_id INT NOT NULL,
     login_time DATETIME NOT NULL,
     logout_time DATETIME DEFAULT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
     FOREIGN KEY (cashier_id) REFERENCES cashiers(id) ON DELETE CASCADE
+);
+
+-- Admin Activity (detailed admin actions tracking) - NEW
+CREATE TABLE IF NOT EXISTS admin_activity (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    details TEXT,
+    activity_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
 );
 
 -- Categories table

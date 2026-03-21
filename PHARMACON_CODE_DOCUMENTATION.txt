@@ -1,0 +1,932 @@
+================================================================================
+                    PHARMACON SYSTEM - COMPLETE CODE DOCUMENTATION
+================================================================================
+
+This document explains every syntax and code in your PharmaCon pharmacy 
+management system. The system is built using Python (Flask) for the backend 
+and HTML/CSS/JavaScript for the frontend.
+
+================================================================================
+                         PART 1: PYTHON BACKEND (app.py)
+================================================================================
+
+================================================================================
+SECTION 1.1: IMPORTING MODULES
+================================================================================
+
+What are imports?
+- Imports are like getting tools from a toolbox. They bring in pre-made 
+  functions and features that other people have already written.
+- Syntax: from module import function
+
+--- CODE: ---
+from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_mysqldb import MySQL
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask import jsonify
+from datetime import datetime
+import random
+
+--- EXPLANATION: ---
+
+1. from flask import Flask, render_template, request, redirect, url_for, session, flash
+   - Flask: The main web framework used to build the application
+   - render_template: Used to display HTML files (templates)
+   - request: Used to get data from forms or URLs
+   - redirect: Used to send user to another page
+   - url_for: Used to create links to other pages dynamically
+   - session: Used to store user login information temporarily
+   - flash: Used to show temporary messages to users (like "Login successful")
+
+2. from flask_mysqldb import MySQL
+   - MySQL: Allows Python to connect to MySQL database
+   - MySQL is the database system that stores all your pharmacy data
+
+3. from werkzeug.security import generate_password_hash, check_password_hash
+   - werkzeug.security: A security module for password handling
+   - generate_password_hash: Converts plain password to encrypted hash
+   - check_password_hash: Verifies if entered password matches encrypted hash
+   - WHY USE THIS? Never store passwords as plain text! Hashing protects user data.
+
+4. from flask import jsonify
+   - jsonify: Converts Python data to JSON format
+   - JSON is used when the frontend needs data without reloading the page (AJAX)
+
+5. from datetime import datetime
+   - datetime: Used to work with dates and times
+   - Example: Getting current date/time for sales records
+
+6. import random
+   - random: Generates random numbers
+   - Used for creating receipt numbers
+
+================================================================================
+SECTION 1.2: FLASK APP CONFIGURATION
+================================================================================
+
+--- CODE: ---
+app = Flask(__name__)
+app.secret_key = "simple_secret_key"
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+
+--- EXPLANATION: ---
+
+1. app = Flask(__name__)
+   - Creates the Flask application
+   - __name__ is a special Python variable that refers to the current file
+   - This is the starting point of your web application
+
+2. app.secret_key = "simple_secret_key"
+   - secret_key is used to sign session cookies
+   - This keeps user sessions secure
+   - Should be a long random string in production
+
+3. app.config['SESSION_PERMANENT'] = False
+   - False means session ends when browser is closed
+   - True means session lasts until PERMANENT_SESSION_LIFETIME
+
+4. app.config['SESSION_COOKIE_HTTPONLY'] = True
+   - Prevents JavaScript from accessing the session cookie
+   - Protects against XSS (Cross-Site Scripting) attacks
+
+5. app.config['PERMANENT_SESSION_LIFETIME'] = 3600
+   - Session lasts 3600 seconds = 1 hour
+   - After 1 hour of inactivity, user is logged out
+
+================================================================================
+SECTION 1.3: MYSQL DATABASE CONFIGURATION
+================================================================================
+
+--- CODE: ---
+# MySQL config
+app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_USER'] = 'root'
+app.config['MYSQL_PASSWORD'] = ''
+app.config['MYSQL_DB'] = 'pharmacon'
+
+mysql = MySQL(app)
+
+--- EXPLANATION: ---
+
+1. app.config['MYSQL_HOST'] = 'localhost'
+   - Host where MySQL database is running
+   - 'localhost' means it's on the same computer
+   - For network setup, this would be an IP address like '192.168.1.100'
+
+2. app.config['MYSQL_USER'] = 'root'
+   - Root is the default MySQL username with full privileges
+
+3. app.config['MYSQL_PASSWORD'] = ''
+   - Empty password (default for XAMPP MySQL)
+   - In production, this should be a strong password
+
+4. app.config['MYSQL_DB'] = 'pharmacon'
+   - The name of the database to connect to
+   - This database was created by database.sql
+
+5. mysql = MySQL(app)
+   - Initializes the MySQL connection with Flask app
+
+================================================================================
+SECTION 1.4: CUSTOM FUNCTIONS
+================================================================================
+
+--- CODE: ---
+def clean_input(value):
+    if not value:
+        return ""
+    return value.strip()
+
+--- EXPLANATION: ---
+
+1. def clean_input(value):
+   - Defines a function named 'clean_input' that takes one parameter 'value'
+   - This function removes extra spaces from user input
+
+2. if not value:
+   - Checks if value is empty, None, or False
+
+3. return ""
+   - Returns empty string if input is empty
+
+4. return value.strip()
+   - .strip() removes leading and trailing whitespace
+   - Example: "  hello  " becomes "hello"
+
+================================================================================
+SECTION 1.5: DECORATORS (ADMIN & CASHIER AUTHENTICATION)
+================================================================================
+
+--- CODE: ---
+def admin_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session or session.get('role') != 'admin':
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def cashier_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'role' not in session or session['role'] != 'cashier':
+            return redirect(url_for('cashier_login'))
+        if 'user_id' not in session:
+            session.clear()
+            return redirect(url_for('cashier_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+--- EXPLANATION: ---
+
+1. def admin_required(f):
+   - This is a DECORATOR function
+   - A decorator wraps another function to add extra functionality
+   - 'f' is the function being decorated (the route it protects)
+
+2. from functools import wraps
+   - functools is a Python module with utility functions
+   - @wraps(f) preserves the original function's metadata
+
+3. def decorated_function(*args, **kwargs):
+   - This is the wrapper function
+   - *args, **kwargs allow passing any number of arguments
+
+4. if 'user' not in session or session.get('role') != 'admin':
+   - Checks if user is logged in AND has admin role
+   - If not, redirects to admin login page
+
+5. return f(*args, **kwargs)
+   - If user is authorized, runs the original function
+   - Returns the result of the protected route
+
+6. @admin_required
+   - This decorator is placed BEFORE any admin-only route
+   - Example: @app.route('/admin') @admin_required def admin_dashboard()
+
+================================================================================
+SECTION 1.6: FLASK ROUTES
+================================================================================
+
+What is a Route?
+- A route is like a URL address (e.g., /admin, /add_product)
+- When user visits that URL, the code below it runs
+
+--- BASIC ROUTE STRUCTURE: ---
+@app.route('/url_path', methods=['GET', 'POST'])
+def function_name():
+    # Code here runs when user visits /url_path
+    return render_template('template.html')
+
+--- EXPLANATION: ---
+
+1. @app.route('/url_path')
+   - Maps the URL to this function
+   - When someone visits /admin, this function runs
+
+2. methods=['GET', 'POST']
+   - GET: User is viewing a page (default)
+   - POST: User is submitting a form
+   - Some routes only need GET, others need both
+
+3. def function_name():
+   - The function that handles the request
+
+4. return render_template('template.html')
+   - Sends the HTML template to the user's browser
+
+================================================================================
+SECTION 1.7: DATABASE OPERATIONS
+================================================================================
+
+--- CODE: ---
+cur = mysql.connection.cursor()
+cur.execute("SELECT * FROM products")
+products = cur.fetchall()
+cur.close()
+
+--- EXPLANATION: ---
+
+1. cur = mysql.connection.cursor()
+   - Creates a cursor (like opening a database terminal)
+   - Cursor is used to execute SQL commands
+
+2. cur.execute("SQL COMMAND")
+   - Executes a SQL query
+   - Example: SELECT gets data, INSERT adds data, UPDATE modifies, DELETE removes
+
+3. cur.fetchall()
+   - Gets all rows from the last SELECT query
+   - Returns a list of tuples (like a 2D array)
+
+4. cur.fetchone()
+   - Gets only one row from the query
+   - Returns a single tuple
+
+5. cur.close()
+   - Closes the cursor
+   - IMPORTANT: Always close cursors to prevent memory leaks!
+
+6. mysql.connection.commit()
+   - Saves (commits) changes to the database
+   - Needed after INSERT, UPDATE, DELETE operations
+
+================================================================================
+SECTION 1.8: SQL COMMANDS EXPLAINED
+================================================================================
+
+--- SELECT - Getting Data ---
+SELECT * FROM products
+- Gets ALL columns from products table
+
+SELECT id, product_name, price FROM products
+- Gets only specific columns
+
+SELECT * FROM products WHERE stock <= 10
+- Gets products where stock is 10 or less
+
+SELECT * FROM products ORDER BY product_name ASC
+- Gets products sorted alphabetically (ASC = ascending)
+
+SELECT COUNT(*) FROM products
+- Counts total number of products
+
+SELECT SUM(total_amount) FROM sales
+- Calculates total of all sales amounts
+
+--- INSERT - Adding Data ---
+INSERT INTO products (name, price, stock) VALUES ('Aspirin', 10.50, 100)
+- Adds a new product to the database
+
+--- UPDATE - Modifying Data ---
+UPDATE products SET stock = 50 WHERE id = 1
+- Changes stock to 50 for product with id 1
+
+--- DELETE - Removing Data ---
+DELETE FROM products WHERE id = 5
+- Deletes product with id 5
+
+--- JOIN - Combining Tables ---
+SELECT c.full_name, ca.login_time
+FROM cashiers c
+JOIN cashier_activity ca ON c.id = ca.cashier_id
+- Gets cashier names with their login times by joining two tables
+
+--- Advanced SQL ---
+CURDATE() - Current date
+NOW() - Current date and time
+INTERVAL 30 DAY - 30 days from now
+LIKE %query% - Search for partial matches
+LIMIT 10 - Get only 10 results
+
+================================================================================
+SECTION 1.9: SESSION MANAGEMENT
+================================================================================
+
+--- CODE: ---
+session['user'] = admin[1]
+session['role'] = 'admin'
+
+if 'user' in session:
+    # User is logged in
+
+session.clear()
+# Logs out user by clearing all session data
+
+--- EXPLANATION: ---
+
+1. session['key'] = value
+   - Stores data that persists across pages
+   - Like a temporary storage for logged-in user info
+
+2. session.get('key')
+   - Gets value from session
+   - Returns None if key doesn't exist (safer than session['key'])
+
+3. 'user' in session
+   - Checks if user is logged in
+
+4. session.clear()
+   - Removes all session data
+   - Used for logout
+
+================================================================================
+SECTION 1.10: FLASH MESSAGES
+================================================================================
+
+--- CODE: ---
+flash("Login successful", "success")
+flash("Invalid password", "error")
+
+--- IN HTML TEMPLATE: ---
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+--- EXPLANATION: ---
+
+1. flash("message", "category")
+   - Creates a temporary message
+   - Categories: 'success', 'error', 'warning', 'info'
+   - Message disappears after next page load
+
+2. get_flashed_messages(with_categories=true)
+   - Jinja2 template function to get flash messages
+   - Returns list of (category, message) tuples
+
+================================================================================
+SECTION 1.11: JSON API RESPONSES
+================================================================================
+
+--- CODE: ---
+return jsonify({
+    'low_stock': [{'id': p[0], 'name': p[1], 'stock': p[2]} for p in low_stock],
+    'expiring': [{'id': p[0], 'name': p[1], 'expiry': str(p[2])} for p in expiring]
+})
+
+--- EXPLANATION: ---
+
+1. jsonify()
+   - Converts Python dictionary to JSON
+   - JSON is used for APIs and AJAX requests
+
+2. [{'key': value} for p in list]
+   - List comprehension - creates a list from another list
+   - Converts database tuples to dictionaries
+
+3. str(p[2])
+   - Converts date object to string
+
+================================================================================
+SECTION 1.12: REQUEST HANDLING
+================================================================================
+
+--- CODE: ---
+# Getting form data
+username = request.form.get('username')
+password = request.form.get('password')
+
+# Getting URL parameters
+query = request.args.get('q')
+
+# Getting JSON data
+data = request.get_json()
+items = data.get('items', [])
+
+--- EXPLANATION: ---
+
+1. request.form.get('field_name')
+   - Gets value from HTML form submission
+   - Returns None if field doesn't exist
+
+2. request.args.get('parameter')
+   - Gets value from URL parameters
+   - Example: /search?q=aspirin
+
+3. request.get_json()
+   - Gets JSON data from API request
+   - Used for AJAX/Fetch operations
+
+================================================================================
+SECTION 1.13: CONDITIONAL LOGIC
+================================================================================
+
+--- CODE: ---
+if condition:
+    # runs if condition is True
+elif other_condition:
+    # runs if first condition is False but this is True
+else:
+    # runs if all conditions are False
+
+--- COMMON CONDITIONS: ---
+if username == "":          # Empty
+if username != "":          # Not empty  
+if count == 0:              # Equals zero
+if count > 0:               # Greater than
+if 'user' in session:       # Key exists
+if check_password_hash(...): # Password matches
+
+================================================================================
+SECTION 1.14: LOOPS
+================================================================================
+
+--- CODE: ---
+# For loop
+for product in products:
+    print(product[1])  # product_name
+
+# List comprehension (inline loop)
+names = [p[1] for p in products]
+
+# Dictionary comprehension
+result = [{'id': p[0], 'name': p[1]} for p in products]
+
+--- EXPLANATION: ---
+
+1. for item in list:
+   - Iterates through each item in a list
+   - Much cleaner than while loops
+
+2. [expression for item in list]
+   - List comprehension - compact way to create lists
+
+================================================================================
+                    PART 2: HTML TEMPLATES (Jinja2)
+================================================================================
+
+================================================================================
+SECTION 2.1: BASIC HTML STRUCTURE
+================================================================================
+
+--- CODE: ---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Title</title>
+    <style>
+        /* CSS goes here */
+    </style>
+</head>
+<body>
+    <!-- Content goes here -->
+</body>
+</html>
+
+--- EXPLANATION: ---
+
+1. <!DOCTYPE html>
+   - Tells browser this is an HTML5 document
+
+2. <html lang="en">
+   - Root HTML element with language specification
+   - "en" = English
+
+3. <head>
+   - Contains metadata (data about the page)
+   - Not displayed on the page
+
+4. <meta charset="UTF-8">
+   - Character encoding (allows special characters)
+
+5. <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   - Makes page responsive on mobile devices
+
+6. <title>
+   - Shows in browser tab
+
+7. <style>
+   - Contains CSS (styling rules)
+
+8. <body>
+   - Contains visible page content
+
+================================================================================
+SECTION 2.2: JINJA2 TEMPLATE SYNTAX
+================================================================================
+
+Jinja2 is Flask's template engine. It adds dynamic features to HTML.
+
+--- VARIABLES ---
+{{ variable }}
+- Displays variable value
+- Example: {{ product_name }} displays "Aspirin"
+
+--- FOR LOOPS ---
+{% for item in items %}
+    <p>{{ item.name }}</p>
+{% endfor %}
+- Loops through items and displays each one
+
+--- IF STATEMENTS ---
+{% if user %}
+    Welcome, {{ user }}!
+{% else %}
+    Please login
+{% endif %}
+
+--- INCLUDE ---
+{% extends "base.html" %}
+- Inherits from another template
+
+{% block content %}
+    <!-- Your content here -->
+{% endblock %}
+- Defines a replaceable section
+
+================================================================================
+SECTION 2.3: FLASK URL FORMS
+================================================================================
+
+--- CODE: ---
+<a href="{{ url_for('admin_login') }}">Login</a>
+<form action="{{ url_for('admin_login') }}" method="POST">
+
+--- EXPLANATION: ---
+
+1. {{ url_for('function_name') }}
+   - Generates URL for a Flask route
+   - Function name, not the URL path!
+   - More secure than hardcoding URLs
+
+2. action="{{ url_for(...) }}"
+   - Form submits to this URL
+
+================================================================================
+SECTION 2.4: FORMS
+================================================================================
+
+--- CODE: ---
+<form method="POST">
+    <input type="text" name="username" placeholder="Username" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+</form>
+
+--- EXPLANATION: ---
+
+1. <form>
+   - Creates an HTML form
+
+2. method="POST"
+   - Sends data securely (not in URL)
+   - GET would put data in URL (less secure)
+
+3. <input type="text">
+   - Text input field
+
+4. <input type="password">
+   - Password field (shows dots instead of characters)
+
+5. name="username"
+   - Name used to retrieve value in Python: request.form.get('username')
+
+6. placeholder="Username"
+   - Gray text shown when field is empty
+
+7. required
+   - Browser validation - field must be filled
+
+8. <button type="submit">
+   - Button that submits the form
+
+================================================================================
+SECTION 2.5: CSS STYLING
+================================================================================
+
+--- CODE: ---
+<style>
+    .class-name {
+        property: value;
+    }
+    
+    #id-name {
+        property: value;
+    }
+</style>
+
+--- COMMON CSS PROPERTIES: ---
+
+Display:
+- display: flex          - Flexible layout
+- display: block         - Takes full width
+- display: inline        - Takes only needed space
+
+Colors:
+- color: white           - Text color
+- background: #ff0000    - Red background
+- opacity: 0.5           - 50% transparent
+
+Spacing:
+- margin: 10px          - Outside spacing
+- padding: 15px          - Inside spacing
+
+Size:
+- width: 100%           - Full width
+- height: 50px          - Fixed height
+
+Text:
+- font-size: 16px       - Text size
+- font-weight: bold      - Bold text
+- text-align: center     - Center text
+
+Borders:
+- border: 1px solid #ccc - Simple border
+- border-radius: 10px     - Rounded corners
+
+================================================================================
+SECTION 2.6: JAVASCRIPT (Inline)
+================================================================================
+
+--- CODE: ---
+<script>
+    // This runs in the browser
+    
+    // Variable
+    var count = 5;
+    let name = "John";
+    const PI = 3.14;
+    
+    // Function
+    function myFunction() {
+        // code here
+    }
+    
+    // Event listener
+    document.getElementById('btn').addEventListener('click', function() {
+        // code here
+    });
+    
+    // Fetch API (get data from server)
+    fetch('/api/products')
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+        });
+</script>
+
+--- EXPLANATION: ---
+
+1. <script>
+   - Contains JavaScript code that runs in the browser
+
+2. var/let/const
+   - var: Function-scoped variable (old way)
+   - let: Block-scoped variable (modern)
+   - const: Constant that cannot change
+
+3. function name() { }
+   - Defines a reusable function
+
+4. document.getElementById('id')
+   - Gets HTML element by its ID
+
+5. .addEventListener('event', function)
+   - Runs function when event happens (click, submit, etc.)
+
+6. fetch(url)
+   - Makes HTTP request to server
+   - Used for AJAX - getting data without page reload
+
+7. .then(response => response.json())
+   - Converts response to JSON
+
+================================================================================
+                    PART 3: DATABASE (MySQL)
+================================================================================
+
+================================================================================
+SECTION 3.1: DATABASE TABLES
+================================================================================
+
+--- CODE: ---
+CREATE TABLE admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+--- EXPLANATION: ---
+
+1. CREATE TABLE table_name
+   - Creates a new table in the database
+
+2. column_name data_type constraints
+   - id INT AUTO_INCREMENT PRIMARY KEY
+     - id: Column name
+     - INT: Integer (whole number)
+     - AUTO_INCREMENT: Automatically numbers rows (1, 2, 3...)
+     - PRIMARY KEY: Unique identifier (cannot be duplicate)
+
+3. VARCHAR(100)
+   - Variable-length text, max 100 characters
+
+4. NOT NULL
+   - Column must have a value (cannot be empty)
+
+5. UNIQUE
+   - No duplicate values allowed (like username)
+
+6. DEFAULT CURRENT_TIMESTAMP
+   - If no value given, use current date/time
+
+7. DECIMAL(10,2)
+   - Decimal number with 10 total digits, 2 after decimal
+   - Example: 12345678.90
+
+================================================================================
+SECTION 3.2: TABLE RELATIONSHIPS (FOREIGN KEYS)
+================================================================================
+
+--- CODE: ---
+FOREIGN KEY (cashier_id) REFERENCES cashiers(id) ON DELETE CASCADE
+
+--- EXPLANATION: ---
+
+1. FOREIGN KEY
+   - Links this table to another table
+   - Ensures data integrity
+
+2. REFERENCES cashiers(id)
+   - References the id column in cashiers table
+
+3. ON DELETE CASCADE
+   - If parent record deleted, delete related records too
+   - Example: If cashier deleted, their activity records deleted too
+
+================================================================================
+SECTION 3.3: COMMON SQL DATA TYPES
+================================================================================
+
+- INT             - Whole number (-2 billion to 2 billion)
+- VARCHAR(n)      - Text, max n characters
+- TEXT            - Long text
+- DATE            - Date (YYYY-MM-DD)
+- DATETIME        - Date and time
+- TIMESTAMP       - Unix timestamp
+- DECIMAL(p,s)    - Precise decimal number
+- BOOLEAN         - True/False
+
+================================================================================
+                    PART 4: QUICK REFERENCE GUIDE
+================================================================================
+
+================================================================================
+COMMON PATTERNS IN THIS SYSTEM
+================================================================================
+
+--- ADMIN LOGIN PATTERN ---
+1. Check if already logged in (session check)
+2. If POST: Get form data
+3. Validate input (not empty)
+4. Query database for user
+5. Check password hash
+6. Set session variables
+7. Redirect to dashboard
+
+--- ADD PRODUCT PATTERN ---
+1. Check if POST
+2. Get form data
+3. Check if product exists (same name, barcode, expiry)
+4. If exists: UPDATE stock
+5. If new: INSERT new product
+6. Log stock movement
+7. Commit to database
+8. Flash success message
+9. Redirect to same page
+
+--- COMPLETE SALE PATTERN ---
+1. Get items from request (JSON)
+2. Generate receipt number
+3. Calculate total
+4. INSERT into sales table
+5. For each item:
+   - INSERT into sale_items
+   - UPDATE product stock (decrease)
+   - INSERT stock_movement
+6. Commit all changes
+7. Return receipt data as JSON
+
+--- SEARCH PRODUCT PATTERN ---
+1. Get search query from URL
+2. SQL LIKE query: WHERE name LIKE %query%
+3. Return results as JSON
+
+================================================================================
+ROUTE SUMMARY
+================================================================================
+
+/                           - Index (redirects to admin_login)
+/admin_login               - Admin login page
+/admin                     - Admin dashboard (requires admin)
+/admin/cashier_logs        - View all cashier activity logs
+/all_products             - View all products catalog
+/add_product               - Add new product (requires admin)
+/delete_product/<id>       - Delete product (requires admin)
+/medical_sales             - View medical sales
+/non_medical_sales         - View non-medical sales
+/sales_dashboard           - Sales overview with charts
+/out_of_stock              - Products with low stock
+/expiring_medical          - Products expiring soon
+/register_cashier          - Register new cashier
+/delete_cashier            - Delete/edit cashier
+/change_admin_password     - Change admin password
+/cashier_login             - Cashier login page
+/cashier                   - Cashier dashboard (requires cashier)
+/cashier_history          - Cashier sales history
+/search_product           - Search products (API)
+/complete_sale            - Complete a sale (API)
+/logout                   - Logout user
+/api/notifications        - Get low stock/expiring alerts (API)
+
+================================================================================
+SECURITY NOTES
+================================================================================
+
+1. Password Hashing
+   - NEVER store plain text passwords
+   - Always use generate_password_hash()
+
+2. SQL Injection Prevention
+   - Use parameterized queries: WHERE name = %s
+   - Never concatenate user input into SQL strings!
+
+3. Session Security
+   - Use secret_key
+   - Set SESSION_COOKIE_HTTPONLY = True
+
+4. Input Validation
+   - Always clean and validate user input
+   - Use clean_input() function
+
+5. Access Control
+   - Use @admin_required and @cashier_required decorators
+   - Check session on every protected route
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+pharmacon/
+├── app.py                 - Main Python application (Flask)
+├── database.sql           - Database schema and initial data
+├── LOCAL_NETWORK_SETUP.txt - Instructions for multi-computer setup
+└── templates/             - HTML files
+    ├── admin_login.html
+    ├── admin_dashboard.html
+    ├── cashier_login.html
+    ├── cashier_dashboard.html
+    ├── add_product.html
+    ├── all_products.html
+    ├── sales_medical.html
+    ├── sales_non_medical.html
+    ├── sales_dashboard.html
+    ├── inventory_out_of_stock.html
+    ├── inventory_expiring.html
+    ├── register_cashier.html
+    ├── delete_cashier.html
+    ├── change_admin_password.html
+    ├── cashier_history.html
+    └── admin_cashier_logs.html
+
+================================================================================
+                           END OF DOCUMENTATION
+================================================================================
+
+This documentation covers all the major concepts in your PharmaCon system.
+For more details on any specific feature, refer to the code comments in
+app.py or the specific HTML template files.
+
+Happy learning!

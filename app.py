@@ -1,15 +1,24 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_mysqldb import MySQL
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import jsonify
 from datetime import datetime
 import random
 
 app = Flask(__name__)
 app.secret_key = "simple_secret_key"
-app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_PERMANENT'] = True  # Session persists on browser close
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours - session lasts 24 hours
+
+# Use separate cookies for admin and cashier
+app.config['SESSION_COOKIE_NAME'] = 'pharmacon_session'
+
+# Add datetime to template context
+from datetime import datetime
+@app.context_processor
+def inject_datetime():
+    return dict(datetime=datetime)
 
 def clean_input(value):
     if not value:
@@ -31,7 +40,7 @@ def admin_required(f):
     from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user' not in session or session.get('role') != 'admin':
+        if 'admin_user' not in session or session.get('role') != 'admin':
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -42,8 +51,10 @@ def cashier_required(f):
     def decorated_function(*args, **kwargs):
         if 'role' not in session or session['role'] != 'cashier':
             return redirect(url_for('cashier_login'))
-        if 'user_id' not in session:
-            session.clear()
+        if 'cashier_id' not in session:
+            session.pop('cashier_user', None)
+            session.pop('cashier_id', None)
+            session.pop('role', None)
             return redirect(url_for('cashier_login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -58,7 +69,7 @@ def index():
 
 @app.route('/admin_login', methods=['GET', 'POST'])
 def admin_login():
-    if 'user' in session and session.get('role') == 'admin':
+    if 'admin_user' in session and session.get('role') == 'admin':
         return redirect(url_for('admin_dashboard'))
 
     if request.method == 'POST':
@@ -95,8 +106,27 @@ def admin_login():
                 return redirect(url_for('admin_login'))
         
         if admin and (password == admin[2] or check_password_hash(admin[2], password)):
-            session['user'] = admin[1]
+            session['admin_user'] = admin[1]
+            session['admin_id'] = admin[0]
             session['role'] = 'admin'
+            session.permanent = True  # Session persists on refresh
+            
+            # Log admin login activity
+            cur = mysql.connection.cursor()
+            ip_address = request.remote_addr
+            if request.headers.get('X-Forwarded-For'):
+                ip_address = request.headers.get('X-Forwarded-For')
+            
+            try:
+                cur.execute("""
+                    INSERT INTO admin_activity (admin_id, action, ip_address, details)
+                    VALUES (%s, %s, %s, %s)
+                """, (admin[0], 'Admin Login', ip_address, f'Admin {admin[1]} logged in'))
+                mysql.connection.commit()
+            except:
+                pass  # Table might not exist yet
+            cur.close()
+            
             return redirect(url_for('admin_dashboard'))
         else:
             flash("Invalid login credentials", "error")
@@ -157,7 +187,7 @@ def cashier_logs():
     cur = mysql.connection.cursor()
     
     cur.execute("""
-        SELECT c.full_name, c.username, ca.login_time, ca.logout_time
+        SELECT c.full_name, c.username, ca.login_time, ca.logout_time, ca.ip_address
         FROM cashier_activity ca
         JOIN cashiers c ON c.id = ca.cashier_id
         ORDER BY ca.login_time DESC
@@ -178,6 +208,36 @@ def cashier_logs():
                            expiring_count=expiring_count,
                            active_main='dashboard', 
                            active_sub='cashier_logs')
+
+@app.route('/admin/activity_logs')
+@admin_required
+def admin_activity_logs():
+    """View detailed admin activity logs"""
+    cur = mysql.connection.cursor()
+    
+    cur.execute("""
+        SELECT a.username, aa.action, aa.ip_address, aa.details, aa.activity_time
+        FROM admin_activity aa
+        JOIN admins a ON aa.admin_id = a.id
+        ORDER BY aa.activity_time DESC
+        LIMIT 50
+    """)
+    admin_logs = cur.fetchall()
+    
+    cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
+    low_stock_count = cur.fetchone()[0]
+    
+    cur.execute("SELECT COUNT(*) FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
+    expiring_count = cur.fetchone()[0]
+    
+    cur.close()
+
+    return render_template('admin_activity_logs.html', 
+                           admin_logs=admin_logs,
+                           low_stock_count=low_stock_count,
+                           expiring_count=expiring_count,
+                           active_main='dashboard', 
+                           active_sub='activity_logs')
 
 # =============================
 # NOTIFICATIONS API
@@ -243,16 +303,76 @@ def add_product():
     cur = mysql.connection.cursor()
 
     if request.method == 'POST':
+        # Check if it's an AJAX request
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.form.get('ajax') == 'true'
+        
         barcode = request.form.get('barcode')
         name = request.form.get('product_name')
         category_name = request.form.get('category')  # From template: category
+        
+        # Validate required fields
+        errors = []
+        if not barcode or barcode.strip() == '':
+            errors.append('Barcode is required')
+        if not name or name.strip() == '':
+            errors.append('Product name is required')
+        if not category_name:
+            errors.append('Category is required')
+        if not request.form.get('price'):
+            errors.append('Price is required')
+        if not request.form.get('stock'):
+            errors.append('Stock is required')
+        
+        if errors:
+            error_msg = 'Error: ' + ', '.join(errors)
+            if is_ajax:
+                return jsonify({'success': False, 'message': error_msg})
+            else:
+                flash(error_msg, 'error')
+                # Re-render page
+                cur.execute("SELECT id, category_name FROM categories ORDER BY category_name ASC")
+                categories = cur.fetchall()
+                cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
+                low_stock_count = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
+                expiring_count = cur.fetchone()[0]
+                cur.close()
+                return render_template('add_product.html', 
+                               categories=categories, 
+                               low_stock_count=low_stock_count,
+                               expiring_count=expiring_count,
+                               active_main='catalog', 
+                               active_sub='add_product')
+        
         p_type = 'medical' if category_name == 'Medical' else 'non_medical'
-        price = request.form.get('price')
-        stock = request.form.get('stock')
+        
+        # Convert to proper types
+        try:
+            price = float(request.form.get('price')) if request.form.get('price') else 0
+            stock = int(request.form.get('stock')) if request.form.get('stock') else 0
+        except ValueError as e:
+            error_msg = f'Invalid price or stock value: {str(e)}'
+            if is_ajax:
+                return jsonify({'success': False, 'message': error_msg})
+            else:
+                flash(error_msg, 'error')
+                cur.execute("SELECT id, category_name FROM categories ORDER BY category_name ASC")
+                categories = cur.fetchall()
+                cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
+                low_stock_count = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
+                expiring_count = cur.fetchone()[0]
+                cur.close()
+                return render_template('add_product.html', 
+                               categories=categories, 
+                               low_stock_count=low_stock_count,
+                               expiring_count=expiring_count,
+                               active_main='catalog', 
+                               active_sub='add_product')
+        
         expiry = request.form.get('expiration_date') or None  # From template: expiration_date
 
         # Get category_id from category name
-        cur = mysql.connection.cursor()
         cur.execute("SELECT id FROM categories WHERE category_name=%s", (category_name,))
         cat_result = cur.fetchone()
         category_id = cat_result[0] if cat_result else None
@@ -270,7 +390,8 @@ def add_product():
                 new_stock = existing[1] + int(stock)
                 cur.execute("UPDATE products SET stock = %s WHERE id = %s", (new_stock, existing[0]))
                 product_id = existing[0]
-                flash(f"Stock updated! Added {stock} units. Total: {new_stock}", "success")
+                message = f"Stock updated! Added {stock} units. Total: {new_stock}"
+                action = 'Stock Update'
             else:
                 # Insert new product if different expiry or new product
                 query = """
@@ -279,7 +400,8 @@ def add_product():
                 """
                 cur.execute(query, (name, barcode, category_id, p_type, price, stock, expiry))
                 product_id = cur.lastrowid
-                flash("Product registered and stock movement logged!", "success")
+                message = "Product registered and stock movement logged!"
+                action = 'Add New Product'
             
             # Log stock movement
             movement_query = """
@@ -288,44 +410,142 @@ def add_product():
             """
             cur.execute(movement_query, (product_id, stock))
             
+            # Log admin activity
+            ip_address = request.remote_addr
+            if request.headers.get('X-Forwarded-For'):
+                ip_address = request.headers.get('X-Forwarded-For')
+            
+            try:
+                cur.execute("""
+                    INSERT INTO admin_activity (admin_id, action, ip_address, details)
+                    VALUES (%s, %s, %s, %s)
+                """, (session.get('admin_id'), action, ip_address, f'{name} - {stock} units added'))
+            except:
+                pass  # Table might not exist yet
+            
             mysql.connection.commit()
             cur.close()
-            return redirect(url_for('add_product'))
+            
+            # Return JSON response for AJAX, render same page for normal form submission (to show flash message)
+            if is_ajax:
+                return jsonify({'success': True, 'message': message})
+            else:
+                flash(message, "success")
+                # Create new cursor for rendering page
+                cur = mysql.connection.cursor()
+                try:
+                    cur.execute("SELECT id, category_name FROM categories ORDER BY category_name ASC")
+                    categories = cur.fetchall()
+                except Exception as e:
+                    categories = []
+                    flash(f"Error loading categories: {str(e)}", "error")
+                
+                cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
+                low_stock_count = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
+                expiring_count = cur.fetchone()[0]
+                cur.close()
+                
+                return render_template('add_product.html', 
+                               categories=categories, 
+                               low_stock_count=low_stock_count,
+                               expiring_count=expiring_count,
+                               active_main='catalog', 
+                               active_sub='add_product')
             
         except Exception as e:
             mysql.connection.rollback()
-            flash(f"Error: {str(e)}", "error")
-
-    try:
-        cur.execute("SELECT id, category_name FROM categories ORDER BY category_name ASC")
-        categories = cur.fetchall()
-    except Exception as e:
-        categories = []
-        flash(f"Error loading categories: {str(e)}", "error")
-    finally:
+            error_str = str(e)
+            
+            # Provide more specific error messages
+            if 'Duplicate entry' in error_str:
+                error_message = 'Error: Product with this barcode already exists! Use a different barcode or update the existing product.'
+            elif 'foreign key constraint fails' in error_str.lower():
+                error_message = 'Error: Invalid category selected. Please select a valid category.'
+            elif 'stock_movements' in error_str.lower():
+                error_message = 'Error: Could not log stock movement. Please try again.'
+            else:
+                error_message = f'Database Error: {error_str}'
+            
+            if is_ajax:
+                return jsonify({'success': False, 'message': error_message})
+            else:
+                flash(error_message, "error")
+                # Create new cursor for rendering page after error
+                cur = mysql.connection.cursor()
+                try:
+                    cur.execute("SELECT id, category_name FROM categories ORDER BY category_name ASC")
+                    categories = cur.fetchall()
+                except Exception as ex:
+                    categories = []
+                    
+                cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
+                low_stock_count = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
+                expiring_count = cur.fetchone()[0]
+                cur.close()
+                
+                return render_template('add_product.html', 
+                               categories=categories, 
+                               low_stock_count=low_stock_count,
+                               expiring_count=expiring_count,
+                               active_main='catalog', 
+                               active_sub='add_product')
+    else:
+        # GET request - load categories and counts
+        try:
+            cur.execute("SELECT id, category_name FROM categories ORDER BY category_name ASC")
+            categories = cur.fetchall()
+        except Exception as e:
+            categories = []
+            flash(f"Error loading categories: {str(e)}", "error")
+        finally:
+            cur.close()
+        
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
+        low_stock_count = cur.fetchone()[0]
+        
+        cur.execute("SELECT COUNT(*) FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
+        expiring_count = cur.fetchone()[0]
         cur.close()
-    
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
-    low_stock_count = cur.fetchone()[0]
-    
-    cur.execute("SELECT COUNT(*) FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
-    expiring_count = cur.fetchone()[0]
-    cur.close()
-    
-    return render_template('add_product.html', 
-                           categories=categories, 
-                           low_stock_count=low_stock_count,
-                           expiring_count=expiring_count,
-                           active_main='catalog', 
-                           active_sub='add_product')
+        
+        return render_template('add_product.html', 
+                               categories=categories, 
+                               low_stock_count=low_stock_count,
+                               expiring_count=expiring_count,
+                               active_main='catalog', 
+                               active_sub='add_product')
 
 @app.route('/delete_product/<int:id>', methods=['POST'])
 @admin_required
 def delete_product(id):
     cur = mysql.connection.cursor()
+    
+    # Get product info before deleting
+    cur.execute("SELECT product_name FROM products WHERE id=%s", (id,))
+    product_info = cur.fetchone()
+    product_name = product_info[0] if product_info else 'Unknown'
+    
     cur.execute("DELETE FROM products WHERE id=%s", (id,))
     mysql.connection.commit()
+    
+    # Log admin activity
+    ip_address = request.remote_addr
+    if request.headers.get('X-Forwarded-For'):
+        ip_address = request.headers.get('X-Forwarded-For')
+    
+    try:
+        cur.execute("""
+            INSERT INTO admin_activity (admin_id, action, ip_address, details)
+            VALUES (%s, %s, %s, %s)
+        """, (session.get('admin_id'), 'Delete Product', ip_address, f'Deleted product: {product_name}'))
+        mysql.connection.commit()
+    except:
+        pass
+    
     cur.close()
     flash("Product deleted successfully", "success")
     return redirect(url_for('all_products'))
@@ -522,6 +742,7 @@ def out_of_stock():
 @app.route('/expiring_medical')
 @admin_required
 def expiring_medical():
+    from datetime import date
     cur = mysql.connection.cursor()
     cur.execute("SELECT * FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
     products = cur.fetchall()
@@ -536,7 +757,8 @@ def expiring_medical():
     return render_template('inventory_expiring.html', products=products,
                            low_stock_count=low_stock_count,
                            expiring_count=expiring_count,
-                           active_main='inventory', active_sub='expiring_medical')
+                           active_main='inventory', active_sub='expiring_medical',
+                           now=date.today)
 
 # =============================
 # ADMIN MANAGEMENT
@@ -576,6 +798,21 @@ def register_cashier():
         """, (full_name, username, hashed_password))
 
         mysql.connection.commit()
+        
+        # Log admin activity
+        ip_address = request.remote_addr
+        if request.headers.get('X-Forwarded-For'):
+            ip_address = request.headers.get('X-Forwarded-For')
+        
+        try:
+            cur.execute("""
+                INSERT INTO admin_activity (admin_id, action, ip_address, details)
+                VALUES (%s, %s, %s, %s)
+            """, (session.get('admin_id'), 'Register Cashier', ip_address, f'Registered cashier: {username}'))
+            mysql.connection.commit()
+        except:
+            pass
+        
         cur.close()
 
         flash("Cashier registered successfully", "success")
@@ -602,8 +839,29 @@ def delete_cashier():
     
     if request.method == 'POST':
         cashier_id = request.form['id']
+        
+        # Get cashier info before deleting
+        cur.execute("SELECT username FROM cashiers WHERE id=%s", (cashier_id,))
+        cashier_info = cur.fetchone()
+        cashier_username = cashier_info[0] if cashier_info else 'Unknown'
+        
         cur.execute("DELETE FROM cashiers WHERE id=%s", (cashier_id,))
         mysql.connection.commit()
+        
+        # Log admin activity
+        ip_address = request.remote_addr
+        if request.headers.get('X-Forwarded-For'):
+            ip_address = request.headers.get('X-Forwarded-For')
+        
+        try:
+            cur.execute("""
+                INSERT INTO admin_activity (admin_id, action, ip_address, details)
+                VALUES (%s, %s, %s, %s)
+            """, (session.get('admin_id'), 'Delete Cashier', ip_address, f'Deleted cashier: {cashier_username}'))
+            mysql.connection.commit()
+        except:
+            pass
+        
         flash("Cashier deleted successfully", "success")
 
     cur.execute("SELECT * FROM cashiers")
@@ -651,6 +909,21 @@ def edit_cashier():
             """, (full_name, username, status, cashier_id))
 
         mysql.connection.commit()
+        
+        # Log admin activity
+        ip_address = request.remote_addr
+        if request.headers.get('X-Forwarded-For'):
+            ip_address = request.headers.get('X-Forwarded-For')
+        
+        try:
+            cur.execute("""
+                INSERT INTO admin_activity (admin_id, action, ip_address, details)
+                VALUES (%s, %s, %s, %s)
+            """, (session.get('admin_id'), 'Update Cashier', ip_address, f'Updated cashier: {username}'))
+            mysql.connection.commit()
+        except:
+            pass
+        
         flash("Cashier updated successfully!", "success")
 
     except Exception as e:
@@ -684,8 +957,23 @@ def change_admin_password():
 
         if admin and check_password_hash(admin[2], old_pass):
             hashed = generate_password_hash(new_pass)
-            cur.execute("UPDATE admins SET password=%s WHERE username=%s", (hashed, session['user']))
+            cur.execute("UPDATE admins SET password=%s WHERE username=%s", (hashed, session['admin_user']))
             mysql.connection.commit()
+            
+            # Log admin activity
+            ip_address = request.remote_addr
+            if request.headers.get('X-Forwarded-For'):
+                ip_address = request.headers.get('X-Forwarded-For')
+            
+            try:
+                cur.execute("""
+                    INSERT INTO admin_activity (admin_id, action, ip_address, details)
+                    VALUES (%s, %s, %s, %s)
+                """, (session.get('admin_id'), 'Change Password', ip_address, 'Admin changed password'))
+                mysql.connection.commit()
+            except:
+                pass
+            
             flash("Password updated successfully", "success")
         else:
             flash("Old password is incorrect", "error")
@@ -720,12 +1008,23 @@ def cashier_login():
         cur.close()
 
         if cashier and check_password_hash(cashier[3], password):
-            session['user'] = cashier[1]
-            session['user_id'] = cashier[0]
+            session['cashier_user'] = cashier[1]
+            session['cashier_id'] = cashier[0]
             session['role'] = 'cashier'
+            session.permanent = True  # Session persists on refresh
             
             cur = mysql.connection.cursor()
-            cur.execute("INSERT INTO cashier_activity (cashier_id, login_time) VALUES (%s, NOW())", (session['user_id'],))
+            
+            # Get IP address
+            ip_address = request.remote_addr
+            if request.headers.get('X-Forwarded-For'):
+                ip_address = request.headers.get('X-Forwarded-For')
+            
+            # Log cashier login with IP address
+            cur.execute("""
+                INSERT INTO cashier_activity (cashier_id, login_time, ip_address)
+                VALUES (%s, NOW(), %s)
+            """, (cashier[0], ip_address))
             mysql.connection.commit()
             cur.close()
             
@@ -780,7 +1079,7 @@ def cashier_dashboard():
         SELECT IFNULL(SUM(total_amount), 0) as total, COUNT(*) as count
         FROM sales 
         WHERE cashier_id = %s AND DATE(sale_date) = CURDATE() AND sale_status = 'Completed'
-    """, (session['user_id'],))
+    """, (session['cashier_id'],))
     today_data = cur.fetchone()
     today_total = today_data[0] if today_data else 0
     today_count = today_data[1] if today_data else 0
@@ -791,7 +1090,7 @@ def cashier_dashboard():
         WHERE cashier_id = %s
         ORDER BY sale_date DESC 
         LIMIT 5
-    """, (session['user_id'],))
+    """, (session['cashier_id'],))
 
     recent_sales = cur.fetchall()
     cur.close()
@@ -817,7 +1116,7 @@ def cashier_history():
         AND DATE(sale_date) >= CURDATE() - INTERVAL 30 DAY
         GROUP BY DATE(sale_date)
         ORDER BY sale_day ASC
-    """, (session['user_id'],))
+    """, (session['cashier_id'],))
     daily_data = cur.fetchall()
 
     labels = [str(row[0]) for row in daily_data]
@@ -832,7 +1131,7 @@ def cashier_history():
         AND DATE(sale_date) = CURDATE()
         AND sale_status = 'Completed'
         ORDER BY sale_date DESC
-    """, (session['user_id'],))
+    """, (session['cashier_id'],))
     sales = cur.fetchall()
 
     sales_data = []
@@ -1000,7 +1299,7 @@ def complete_sale():
     cur.execute("""
         INSERT INTO sales (receipt_number, cashier_id, total_amount, sale_status, product_type, sale_date)
         VALUES (%s, %s, %s, 'Completed', %s, NOW())
-    """, (receipt_number, session['user_id'], total_amount, product_type))
+    """, (receipt_number, session['cashier_id'], total_amount, product_type))
     
     sale_id = cur.lastrowid
     
@@ -1058,28 +1357,73 @@ def setup_remote_db():
     except Exception as e:
         return f"Error: {str(e)}"
 
-@app.route('/logout')
-def logout():
-    role = session.get('role')
-    user = session.get('user')
-
-    if role == 'cashier':
+@app.route('/admin_logout')
+def admin_logout():
+    """Admin logout - only clears admin session, does not affect cashier"""
+    # Log admin activity
+    if 'admin_user' in session:
         cur = mysql.connection.cursor()
+        # Get IP address
+        ip_address = request.remote_addr
+        if request.headers.get('X-Forwarded-For'):
+            ip_address = request.headers.get('X-Forwarded-For')
+        
         cur.execute("""
-            UPDATE cashier_activity
-            SET logout_time = NOW()
-            WHERE cashier_id = (
-                SELECT id FROM cashiers WHERE username=%s
-            ) AND logout_time IS NULL
-        """, (user,))
+            INSERT INTO admin_activity (admin_id, action, ip_address, details)
+            VALUES (%s, %s, %s, %s)
+        """, (session.get('admin_id'), 'Admin Logout', ip_address, 'Admin logged out'))
         mysql.connection.commit()
         cur.close()
+    
+    # Only clear admin session keys, keep cashier session intact
+    session.pop('admin_user', None)
+    session.pop('admin_id', None)
+    session.pop('role', None)
+    
+    return redirect(url_for('admin_login'))
 
-    session.clear()
-
-    if role == 'admin':
-        return redirect(url_for('admin_login'))
+@app.route('/cashier_logout')
+def cashier_logout():
+    """Cashier logout - clears cashier session and logs activity"""
+    if 'cashier_user' in session:
+        cur = mysql.connection.cursor()
+        cashier_id = session.get('cashier_id')
+        
+        # Get IP address
+        ip_address = request.remote_addr
+        if request.headers.get('X-Forwarded-For'):
+            ip_address = request.headers.get('X-Forwarded-For')
+        
+        # Log the logout time in cashier_activity
+        cur.execute("""
+            UPDATE cashier_activity
+            SET logout_time = NOW(),
+                ip_address = COALESCE(ip_address, %s)
+            WHERE cashier_id = %s AND logout_time IS NULL
+        """, (ip_address, cashier_id))
+        mysql.connection.commit()
+        cur.close()
+    
+    # Only clear cashier session keys, keep admin session intact
+    session.pop('cashier_user', None)
+    session.pop('cashier_id', None)
+    session.pop('role', None)
+    
     return redirect(url_for('cashier_login'))
+
+@app.route('/logout')
+def logout():
+    """Legacy logout - determines role and logs out appropriately"""
+    role = session.get('role')
+    
+    if role == 'admin':
+        return redirect(url_for('admin_logout'))
+    elif role == 'cashier':
+        return redirect(url_for('cashier_logout'))
+    
+    # If no role, just clear everything
+    session.clear()
+    return redirect(url_for('admin_login'))
 
 # =============================
 # RUN APP

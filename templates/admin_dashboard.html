@@ -11,7 +11,7 @@
             --glass: rgba(255, 255, 255, 0.05);
             --glass-border: rgba(255, 255, 255, 0.1);
             --orange: #fb923c;
-            --red: transparent;
+            --red: #dc2626;
             --green: #4ade80;
             --text-main: #ffffff;
             --text-muted: #a0aec0;
@@ -147,8 +147,8 @@
         }
 
         .notification-bell svg {
-            width: 16px;
-            height: 16px;
+            width: 24px;
+            height: 24px;
             fill: white;
         }
 
@@ -280,7 +280,13 @@
         {% endif %}
     </div>
     <div class="notification-dropdown" id="notificationDropdown">
-        <div class="notification-header">Notifications</div>
+        <div class="notification-header">
+            <span>Notifications</span>
+            <div style="display:flex;gap:5px;margin-top:5px;">
+                <a href="/out_of_stock" style="font-size:10px;padding:2px 6px;background:#fee2e2;color:#dc2626;border-radius:3px;text-decoration:none;">Low Stock</a>
+                <a href="/expiring_medical" style="font-size:10px;padding:2px 6px;background:#fef3c7;color:#d97706;border-radius:3px;text-decoration:none;">Expiring</a>
+            </div>
+        </div>
         <div id="notificationList">
             <div class="no-notifications">Loading...</div>
         </div>
@@ -334,7 +340,7 @@
         <a href="{{ url_for('change_admin_password') }}" class="{% if active_sub == 'change_admin_password' %}active{% endif %}">Security Settings</a>
     </div>
 
-    <a href="/logout" class="nav-item logout">Logout</a>
+    <a href="/admin_logout" class="nav-item logout">Logout</a>
 </div>
 
 <div class="content">

@@ -12,7 +12,7 @@
             --glass-border: rgba(255, 255, 255, 0.12);
             --orange: #fb923c;
             --green: #4ade80;
-            --red: #ef4444;
+            --red: #dc2626;
             --text-muted: #94a3b8;
         }
 
@@ -429,7 +429,7 @@
         function selectProduct(product) {
             selectedProductData = product;
             document.getElementById('sel-name').innerText = product.name;
-            document.getElementById('sel-details').innerText = `Price: ₱${product.price.toFixed(2)} | Stock: ${product.stock}`;
+            document.getElementById('sel-details').innerText = `Price: ₱${product.price.toFixed(2)} | Stock: ${product.stock} | Exp: ${product.expiry || 'N/A'}`;
             document.getElementById('sel-qty').value = 1;
             document.getElementById('sel-qty').max = product.stock;
             
@@ -460,7 +460,8 @@
                     id: selectedProductData.id,
                     name: selectedProductData.name,
                     price: selectedProductData.price,
-                    quantity: qty
+                    quantity: qty,
+                    expiry: selectedProductData.expiry
                 });
             }
             
@@ -485,6 +486,7 @@
                                 id: data.product.id,
                                 name: data.product.name,
                                 price: data.product.price,
+                                expiry: data.product.expiry || null,
                                 quantity: 1
                             });
                         }
@@ -506,7 +508,7 @@
                 row.innerHTML = `
                     <div class="cart-row-info">
                         <div class="cart-row-name">${item.name}</div>
-                        <div class="cart-row-qty">Qty: ${item.quantity} x ₱${item.price.toFixed(2)}</div>
+                        <div class="cart-row-qty">Qty: ${item.quantity} x ₱${item.price.toFixed(2)}${item.expiry ? ' | Exp: ' + item.expiry : ''}</div>
                     </div>
                     <div class="cart-row-price">₱${subtotal.toFixed(2)}</div>
                     <button class="cart-row-remove" onclick="removeFromCart(${index})">×</button>
@@ -574,7 +576,7 @@
 
         function handleLogout() {
             if(confirm("Logout from system? Cart will be cleared.")) {
-                window.location.href = "/logout";
+                window.location.href = "/cashier_logout";
             }
         }
     </script>

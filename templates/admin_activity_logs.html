@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Security Settings - PharmaCon Admin</title>
+    <title>Admin Activity Logs - PharmaCon Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root { --bg-dark: #1e1e2f; --bg-accent: #2c3e50; --glass: rgba(255,255,255,0.05); --glass-border: rgba(255,255,255,0.1); --orange: #fb923c; --red: #dc2626; --green: #4ade80; --text-muted: #a0aec0; }
@@ -17,7 +17,7 @@
         .submenu a:hover { background: rgba(255,255,255,0.05); color: white; }
         .submenu a.active { color: white; font-weight: bold; background: rgba(255,255,255,0.03); }
         .content { flex: 1; padding: 40px; overflow-y: auto; }
-        .content-card { background: white; color: #1e1e2f; padding: 30px; border-radius: 15px; box-shadow: 0px 10px 30px rgba(0,0,0,0.4); max-width: 500px; }
+        .content-card { background: white; color: #1e1e2f; padding: 30px; border-radius: 15px; box-shadow: 0px 10px 30px rgba(0,0,0,0.4); }
         .logout { margin-top: auto; color: var(--red); border-top: 1px solid var(--glass-border); }
         .logout:hover { background: rgba(255,77,77,0.1); padding-left: 35px; }
         
@@ -37,12 +37,15 @@
         .notification-item-name { font-weight: 600; color: white; font-size: 14px; }
         .notification-item-detail { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
         
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #1e1e2f; }
-        .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
-        .form-group input:focus { outline: none; border-color: var(--orange); }
-        .btn { padding: 12px 30px; background: var(--orange); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
-        .btn:hover { opacity: 0.9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; color: #1e1e2f; }
+        .action-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .action-badge.login { background: #dcfce7; color: #16a34a; }
+        .action-badge.logout { background: #f1f5f9; color: #64748b; }
+        .action-badge.add { background: #dbeafe; color: #2563eb; }
+        .action-badge.update { background: #fef3c7; color: #d97706; }
+        .action-badge.delete { background: #fee2e2; color: #dc2626; }
         .back-link { display: inline-block; margin-bottom: 20px; color: var(--orange); text-decoration: none; font-weight: 600; }
     </style>
 </head>
@@ -69,24 +72,24 @@
 
 <div class="sidebar">
     <a href="{{ url_for('admin_dashboard') }}" style="text-decoration:none;color:white;"><h2>PHARMA<span>CON</span></h2></a>
-    <div class="nav-item" onclick="toggleMenu('dash-menu')">Dashboard</div>
-    <div class="submenu" id="dash-menu" style="display:{% if active_main=='dashboard' or active_main=='admin' %}flex{% else %}none{% endif %};">
+    <div class="nav-item {% if active_main=='dashboard' or active_main=='admin' %}active{% endif %}" onclick="toggleMenu('dash-menu')">Dashboard</div>
+    <div class="submenu" id="dash-menu" style="display:flex;">
         <a href="{{ url_for('admin_dashboard') }}">Activity Monitor</a>
         <a href="{{ url_for('cashier_logs') }}">Cashier Logs</a>
+        <a href="{{ url_for('admin_activity_logs') }}" class="active">Admin Logs</a>
     </div>
     <div class="nav-item {% if active_main=='catalog' %}active{% endif %}" onclick="toggleMenu('catalog')">Catalog</div>
-    <div class="submenu" id="catalog" style="display:none;">
+    <div class="submenu" id="catalog" style="display:{% if active_main=='catalog' %}flex{% else %}none{% endif%}">
         <a href="{{ url_for('all_products') }}">All Products</a>
         <a href="{{ url_for('add_product') }}">Add Product</a>
     </div>
-    <div class="nav-item {% if active_main=='sales' %}active{% endif %}" onclick="toggleMenu('sales')">Sales Reports</div>
+    <div class="nav-item {% if active_main=='sales' %}active{% endif %}" onclick="toggleMenu('sales')">Sales</div>
     <div class="submenu" id="sales" style="display:{% if active_main=='sales' %}flex{% else %}none{% endif%}">
-        <a href="{{ url_for('sales_dashboard') }}" class="{% if active_sub=='sales_dashboard' %}active{% endif %}">Sales Dashboard</a>
-        <a href="{{ url_for('medical_sales') }}" class="active">Medical Sales</a>
-        <a href="{{ url_for('non_medical_sales') }}">Non-Medical Sales</a>
+        <a href="{{ url_for('medical_sales') }}">Medical Products</a>
+        <a href="{{ url_for('non_medical_sales') }}">Non-Medical Products</a>
     </div>
     <div class="nav-item {% if active_main=='inventory' %}active{% endif %}" onclick="toggleMenu('inventory')">Inventory</div>
-    <div class="submenu" id="inventory" style="display:none;">
+    <div class="submenu" id="inventory" style="display:{% if active_main=='inventory' %}flex{% else %}none{% endif%}">
         <a href="{{ url_for('out_of_stock') }}">Low Stock Alerts</a>
         <a href="{{ url_for('expiring_medical') }}">Expiring Alerts</a>
     </div>
@@ -94,7 +97,7 @@
     <div class="submenu" id="management" style="display:{% if active_main=='management' %}flex{% else %}none{% endif%}">
         <a href="{{ url_for('register_cashier') }}">Register Cashier</a>
         <a href="{{ url_for('delete_cashier') }}">Manage Staff</a>
-        <a href="{{ url_for('change_admin_password') }}" class="active">Security Settings</a>
+        <a href="{{ url_for('change_admin_password') }}">Security Settings</a>
     </div>
     <a href="/admin_logout" class="nav-item logout">Logout</a>
 </div>
@@ -102,22 +105,42 @@
 <div class="content">
     <div class="content-card">
         <a href="{{ url_for('admin_dashboard') }}" class="back-link">← Back to Dashboard</a>
-        <h1 style="margin:0 0 20px 0;">Security Settings</h1>
-        <p style="color:#666;margin-bottom:25px;">Change your admin password here. Password will be securely hashed.</p>
+        <h1 style="margin:0 0 20px 0;">Admin Activity Logs</h1>
+        <p style="color:#666;">Detailed history of all admin actions.</p>
         
-        <form method="POST">
-            <div class="form-group">
-                <label>Current Password</label>
-                <input type="password" name="old_password" required>
-            </div>
-            <div class="form-group">
-                <label>New Password</label>
-                <input type="password" name="new_password" required>
-            </div>
-            <button type="submit" class="btn">Update Password</button>
-        </form>
+        {% if admin_logs %}
+        <table>
+            <thead><tr><th>Admin</th><th>Action</th><th>IP Address</th><th>Details</th><th>Time</th></tr></thead>
+            <tbody>
+            {% for log in admin_logs %}
+            <tr>
+                <td><strong>{{ log[0] }}</strong></td>
+                <td>
+                    {% if 'Login' in log[1] %}
+                    <span class="action-badge login">{{ log[1] }}</span>
+                    {% elif 'Logout' in log[1] %}
+                    <span class="action-badge logout">{{ log[1] }}</span>
+                    {% elif 'Add' in log[1] or 'Register' in log[1] %}
+                    <span class="action-badge add">{{ log[1] }}</span>
+                    {% elif 'Delete' in log[1] %}
+                    <span class="action-badge delete">{{ log[1] }}</span>
+                    {% else %}
+                    <span class="action-badge update">{{ log[1] }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ log[2] if log[2] else 'N/A' }}</td>
+                <td>{{ log[3] if log[3] else '-' }}</td>
+                <td>{{ log[4].strftime('%Y-%m-%d %H:%M') if log[4] else '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#666;margin-top:20px;">No admin activity logs found.</p>
+        {% endif %}
     </div>
 </div>
+
 <script>
 function toggleMenu(id) { document.getElementById(id).style.display = document.getElementById(id).style.display === "flex" ? "none" : "flex"; }
 function toggleNotifications() { const d = document.getElementById('notificationDropdown'); d.classList.toggle('show'); if(d.classList.contains('show')) loadNotifications(); }
@@ -131,26 +154,5 @@ function loadNotifications() {
 }
 document.addEventListener('click',e=>{if(!document.querySelector('.notification-container').contains(e.target))document.getElementById('notificationDropdown').classList.remove('show');});
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <script>
-        Swal.fire({ icon: '{{ "success" if category == "success" else "error" }}', title: '{{ message }}', showConfirmButton: false, timer: 2500 });
-      </script>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
-
-<script>
-function toggleMenu(id) { document.getElementById(id).style.display = document.getElementById(id).style.display === "flex" ? "none" : "flex"; }
-function toggleNotifications() { const d = document.getElementById('notificationDropdown'); d.classList.toggle('show'); if(d.classList.contains('show')) loadNotifications(); }
-function loadNotifications() {
-    fetch('/api/notifications').then(r=>r.json()).then(data => {
-        let html = '';
-        if(data.low_stock.length) { html += '<div class="notification-section"><h4>Low Stock</h4>'; data.low_stock.forEach(i=>{html+=`<div class="notification-item low-stock" onclick="window.location.href='/out_of_stock'"><div class="notification-item-name">${i.name}</div><div class="notification-item-detail">Stock: ${i.stock}</div></div>`;}); html+='</div>'; }
-        if(data.expiring.length) { html += '<div class="notification-section"><h4>Expiring</h4>'; data.expiring.forEach(i=>{html+=`<div class="notification-item expiring" onclick="window.location.href='/expiring_medical'"><div class="notification-item-name">${i.name}</div><div class="notification-item-detail">Expires: ${i.expiry}</div></div>`;}); html+='</div>'; }
-        document.getElementById('notificationList').innerHTML = html || '<div style="padding:30px;text-align:center;color:#94a3b8">No notifications</div>';
-    });
-}
-document.addEventListener('click',e=>{if(!document.querySelector('.notification-container').contains(e.target))document.getElementById('notificationDropdown').classList.remove('show');});
+</body>
+</html>

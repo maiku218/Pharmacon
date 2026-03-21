@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        :root { --bg-dark: #1e1e2f; --bg-accent: #2c3e50; --glass: rgba(255,255,255,0.05); --glass-border: rgba(255,255,255,0.1); --orange: #fb923c; --red: #ff4d4d; --green: #4ade80; --text-muted: #a0aec0; }
+        :root { --bg-dark: #1e1e2f; --bg-accent: #2c3e50; --glass: rgba(255,255,255,0.05); --glass-border: rgba(255,255,255,0.1); --orange: #fb923c; --red: #dc2626; --green: #4ade80; --text-muted: #a0aec0; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: linear-gradient(135deg, var(--bg-dark), var(--bg-accent)); color: white; }
         .sidebar { width: 260px; background: rgba(15,23,42,0.7); backdrop-filter: blur(15px); display: flex; flex-direction: column; padding-top: 25px; box-shadow: 5px 0 20px rgba(0,0,0,0.4); border-right: 1px solid var(--glass-border); }
         .sidebar h2 { text-align: center; margin-bottom: 30px; letter-spacing: 2px; font-size: 22px; font-weight: 800; }
@@ -24,8 +24,8 @@
         
         .notification-container { position: fixed; top: 8px; right: 8px; z-index: 1000; }
         .notification-bell { position: relative; cursor: pointer; padding: 5px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .notification-bell svg { width: 16px; height: 16px; fill: white; }
-        .notification-badge { position: absolute; top: -2px; right: -2px; background: var(--red); color: white; border-radius: 50%; width: 14px; height: 14px; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .notification-bell svg { width: 24px; height: 24px; fill: white; }
+        .notification-badge { position: absolute; top: -5px; right: -5px; background: var(--red); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
         .notification-dropdown { display: none; position: absolute; top: 50px; right: 0; width: 350px; max-height: 400px; overflow-y: auto; background: #1e293b; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
         .notification-dropdown.show { display: block; }
         .notification-header { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: bold; color: white; }
@@ -59,7 +59,13 @@
         {% endif %}
     </div>
     <div class="notification-dropdown" id="notificationDropdown">
-        <div class="notification-header">Notifications</div>
+        <div class="notification-header">
+            <span>Notifications</span>
+            <div style="display:flex;gap:5px;margin-top:5px;">
+                <a href="/out_of_stock" style="font-size:10px;padding:2px 6px;background:#fee2e2;color:#dc2626;border-radius:3px;text-decoration:none;">Low Stock</a>
+                <a href="/expiring_medical" style="font-size:10px;padding:2px 6px;background:#fef3c7;color:#d97706;border-radius:3px;text-decoration:none;">Expiring</a>
+            </div>
+        </div>
         <div id="notificationList"><div style="padding:30px;text-align:center;color:#94a3b8">Loading...</div></div>
     </div>
 </div>
@@ -72,10 +78,11 @@
         <a href="{{ url_for('all_products') }}" class="active">All Products</a>
         <a href="{{ url_for('add_product') }}">Add Product</a>
     </div>
-    <div class="nav-item {% if active_main=='sales' %}active{% endif %}" onclick="toggleMenu('sales')">Sales</div>
+    <div class="nav-item {% if active_main=='sales' %}active{% endif %}" onclick="toggleMenu('sales')">Sales Reports</div>
     <div class="submenu" id="sales" style="display:{% if active_main=='sales' %}flex{% else %}none{% endif%}">
-        <a href="{{ url_for('medical_sales') }}">Medical Products</a>
-        <a href="{{ url_for('non_medical_sales') }}">Non-Medical Products</a>
+        <a href="{{ url_for('sales_dashboard') }}" class="{% if active_sub=='sales_dashboard' %}active{% endif %}">Sales Dashboard</a>
+        <a href="{{ url_for('medical_sales') }}" class="active">Medical Sales</a>
+        <a href="{{ url_for('non_medical_sales') }}">Non-Medical Sales</a>
     </div>
     <div class="nav-item {% if active_main=='inventory' %}active{% endif %}" onclick="toggleMenu('inventory')">Inventory</div>
     <div class="submenu" id="inventory" style="display:{% if active_main=='inventory' %}flex{% else %}none{% endif%}">
@@ -88,7 +95,7 @@
         <a href="{{ url_for('delete_cashier') }}">Manage Staff</a>
         <a href="{{ url_for('change_admin_password') }}">Security Settings</a>
     </div>
-    <a href="/logout" class="nav-item logout">Logout</a>
+    <a href="/admin_logout" class="nav-item logout">Logout</a>
 </div>
 
 <div class="content">
