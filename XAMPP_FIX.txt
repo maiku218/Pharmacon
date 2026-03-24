@@ -1,0 +1,81 @@
+XAMPP MYSQL FIX - Error #1396
+
+================================================================================
+THE PROBLEM
+================================================================================
+
+The error "Operation CREATE USER failed for 'root'@'%'" occurs because:
+
+1. The 'root' user already exists in MySQL
+2. You're trying to create a new user when it already exists
+
+================================================================================
+SOLUTION 1: SIMPLE FIX (RECOMMENDED)
+================================================================================
+
+You don't need to create a new user! XAMPP already has a 'root' user set up.
+Just skip the CREATE USER part and run only the database creation.
+
+IN PHPMYADMIN:
+
+1. Click on "SQL" tab
+2. Copy and paste ONLY this part:
+
+-- Create database
+CREATE DATABASE IF NOT EXISTS pharmacon;
+USE pharmacon;
+
+3. Click "Go"
+
+Then run the full database.sql file - it already uses existing 'root' user.
+
+================================================================================
+SOLUTION 2: DROP AND RECREATE ROOT USER
+================================================================================
+
+If Solution 1 doesn't work, try this:
+
+1. Open XAMPP Control Panel
+2. Click "Shell" button
+3. Type: mysql -u root
+4. Press Enter
+5. Type these commands one by one:
+
+DROP USER IF EXISTS 'root'@'%';
+CREATE USER 'root'@'%' IDENTIFIED BY '';
+FLUSH PRIVILEGES;
+EXIT;
+
+6. Then try running your database.sql again
+
+================================================================================
+SOLUTION 3: USE LOCALHOST USER
+================================================================================
+
+Instead of 'root'@'%', use 'root'@'localhost':
+
+1. Open phpMyAdmin
+2. Go to SQL tab
+3. Run:
+
+DROP USER IF EXISTS 'root'@'localhost';
+CREATE USER 'root'@'localhost' IDENTIFIED BY '';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+
+================================================================================
+SIMPLE STEPS TO SETUP DATABASE
+================================================================================
+
+1. Open XAMPP Control Panel
+2. Start Apache and MySQL
+3. Open phpMyAdmin (click Admin button next to MySQL)
+4. Click "SQL" tab
+5. Copy the entire database.sql content
+6. Paste in the SQL box
+7. Click "Go"
+
+The database.sql file doesn't contain CREATE USER statements,
+so it should work with the default XAMPP 'root' user.
+
+================================================================================

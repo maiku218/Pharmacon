@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS products (
     product_name VARCHAR(200) NOT NULL,
     barcode VARCHAR(100) UNIQUE,
     category_id INT,
-    type VARCHAR(50) DEFAULT 'medical',
+    product_type VARCHAR(50) DEFAULT 'medical',
     price DECIMAL(10,2) NOT NULL,
     stock INT DEFAULT 0,
     expiration_date DATE DEFAULT NULL,
@@ -111,8 +111,8 @@ INSERT INTO categories (category_name, description) VALUES
 
 -- Fix: Update product types to use correct case ('Medical', 'Non-Medical')
 -- This fixes the case sensitivity issue where products were stored as lowercase
-UPDATE products SET type = 'Medical' WHERE type = 'medical';
-UPDATE products SET type = 'Non-Medical' WHERE type = 'non_medical';
+UPDATE products SET product_type = 'Medical' WHERE product_type = 'medical';
+UPDATE products SET product_type = 'Non-Medical' WHERE product_type = 'non_medical';
 
 -- Fix: Update sales product_type to use correct case
 -- This ensures sales are properly categorized in reports

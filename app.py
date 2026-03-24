@@ -558,7 +558,18 @@ def delete_product(id):
 @admin_required
 def medical_sales():
     cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM sales WHERE product_type='Medical'")
+    
+    # Get sales with product names
+    cur.execute("""
+        SELECT s.id, s.receipt_number, GROUP_CONCAT(p.product_name SEPARATOR ', ') as products, 
+               s.total_amount, s.sale_status, s.product_type, s.sale_date
+        FROM sales s
+        LEFT JOIN sale_items si ON s.id = si.sale_id
+        LEFT JOIN products p ON si.product_id = p.id
+        WHERE s.product_type = 'Medical'
+        GROUP BY s.id
+        ORDER BY s.sale_date DESC
+    """)
     sales = cur.fetchall()
     
     cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
@@ -770,7 +781,18 @@ def sales_dashboard():
 @admin_required
 def non_medical_sales():
     cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM sales WHERE product_type='Non-Medical'")
+    
+    # Get sales with product names
+    cur.execute("""
+        SELECT s.id, s.receipt_number, GROUP_CONCAT(p.product_name SEPARATOR ', ') as products, 
+               s.total_amount, s.sale_status, s.product_type, s.sale_date
+        FROM sales s
+        LEFT JOIN sale_items si ON s.id = si.sale_id
+        LEFT JOIN products p ON si.product_id = p.id
+        WHERE s.product_type = 'Non-Medical'
+        GROUP BY s.id
+        ORDER BY s.sale_date DESC
+    """)
     sales = cur.fetchall()
     
     cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
@@ -1373,7 +1395,7 @@ def complete_sale():
     non_medical_items = []
     
     for item in items:
-        cur.execute("SELECT type FROM products WHERE id = %s", (item['id'],))
+        cur.execute("SELECT product_type FROM products WHERE id = %s", (item['id'],))
         result = cur.fetchone()
         product_type = result[0] if result else 'Non-Medical'
         

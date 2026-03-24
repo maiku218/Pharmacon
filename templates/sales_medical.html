@@ -35,8 +35,8 @@
     <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
         <thead>
             <tr style="border-bottom: 2px solid #eee;">
-                <th style="text-align: left; padding: 12px; color: #666;">ID</th>
                 <th style="text-align: left; padding: 12px; color: #666;">Receipt #</th>
+                <th style="text-align: left; padding: 12px; color: #666;">Product Name</th>
                 <th style="text-align: left; padding: 12px; color: #666;">Total</th>
                 <th style="text-align: left; padding: 12px; color: #666;">Date</th>
                 <th style="text-align: left; padding: 12px; color: #666;">Status</th>
@@ -45,9 +45,9 @@
         <tbody>
         {% for s in sales %}
         <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 12px;">{{ s[0] }}</td>
             <td style="padding: 12px;">{{ s[1] }}</td>
-            <td style="padding: 12px; font-weight: 600;">₱{{ s[3] }}</td>
+            <td style="padding: 12px;">{{ s[2] if s[2] else '-' }}</td>
+            <td style="padding: 12px; font-weight: 600;">₱{{ "%.2f"|format(s[3]) }}</td>
             <td style="padding: 12px;">{{ s[6].strftime('%Y-%m-%d %H:%M') if s[6] else '-' }}</td>
             <td style="padding: 12px;">{{ s[4] }}</td>
         </tr>

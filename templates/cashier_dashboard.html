@@ -530,13 +530,19 @@
                 return;
             }
 
+            console.log('Sending cart:', cart);
+
             fetch('/complete_sale', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ items: cart })
             })
-            .then(res => res.json())
+            .then(res => {
+                console.log('Response status:', res.status);
+                return res.json();
+            })
             .then(data => {
+                console.log('Response data:', data);
                 if (data.success) {
                     showReceipt(data);
                     cart = [];
@@ -544,6 +550,10 @@
                 } else {
                     alert('Error: ' + data.message);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error completing sale: ' + error);
             });
         }
 
