@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS products (
     id INT AUTO_INCREMENT PRIMARY KEY,
     product_name VARCHAR(200) NOT NULL,
-    barcode VARCHAR(100) UNIQUE,
+    barcode VARCHAR(100) DEFAULT NULL,
     category_id INT,
     product_type VARCHAR(50) DEFAULT 'medical',
     price DECIMAL(10,2) NOT NULL,

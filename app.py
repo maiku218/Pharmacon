@@ -378,11 +378,17 @@ def add_product():
         category_id = cat_result[0] if cat_result else None
         
         try:
-            # Check if product exists with same name, barcode AND expiration date
-            cur.execute("""
-                SELECT id, stock FROM products 
-                WHERE product_name = %s AND barcode = %s AND expiration_date = %s
-            """, (name, barcode, expiry))
+            # Check if product exists with same name AND expiration date (barcode can be empty or same)
+            if barcode:
+                cur.execute("""
+                    SELECT id, stock FROM products 
+                    WHERE product_name = %s AND barcode = %s AND expiration_date = %s
+                """, (name, barcode, expiry))
+            else:
+                cur.execute("""
+                    SELECT id, stock FROM products 
+                    WHERE product_name = %s AND (barcode IS NULL OR barcode = '') AND expiration_date = %s
+                """, (name, expiry))
             existing = cur.fetchone()
             
             if existing:
@@ -395,10 +401,12 @@ def add_product():
             else:
                 # Insert new product if different expiry or new product
                 query = """
-                    INSERT INTO products (product_name, barcode, category_id, type, price, stock, expiration_date) 
+                    INSERT INTO products (product_name, barcode, category_id, product_type, price, stock, expiration_date) 
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
-                cur.execute(query, (name, barcode, category_id, p_type, price, stock, expiry))
+                # Set barcode to None if empty
+                barcode_value = barcode if barcode else None
+                cur.execute(query, (name, barcode_value, category_id, p_type, price, stock, expiry))
                 product_id = cur.lastrowid
                 message = "Product registered and stock movement logged!"
                 action = 'Add New Product'
@@ -529,6 +537,11 @@ def delete_product(id):
     product_info = cur.fetchone()
     product_name = product_info[0] if product_info else 'Unknown'
     
+    # Delete related records first (stock_movements and sale_items)
+    cur.execute("DELETE FROM stock_movements WHERE product_id=%s", (id,))
+    cur.execute("DELETE FROM sale_items WHERE product_id=%s", (id,))
+    
+    # Now delete the product
     cur.execute("DELETE FROM products WHERE id=%s", (id,))
     mysql.connection.commit()
     
@@ -819,6 +832,63 @@ def non_medical_sales():
                            expiring_count=expiring_count,
                            chart_labels=chart_labels, chart_values=chart_values,
                            active_main='sales', active_sub='non_medical_sales')
+
+@app.route('/clear_sales', methods=['POST'])
+@admin_required
+def clear_sales():
+    cur = mysql.connection.cursor()
+    
+    # Delete all sales records (this will also delete sale_items due to CASCADE)
+    cur.execute("DELETE FROM sales")
+    
+    # Delete all stock movements
+    cur.execute("DELETE FROM stock_movements")
+    
+    mysql.connection.commit()
+    cur.close()
+    
+    flash("All sales data cleared successfully!", "success")
+    return redirect(url_for('sales_dashboard'))
+
+@app.route('/clear_medical_sales', methods=['POST'])
+@admin_required
+def clear_medical_sales():
+    cur = mysql.connection.cursor()
+    
+    # Delete sale_items for medical sales
+    cur.execute("""
+        DELETE FROM sale_items 
+        WHERE sale_id IN (SELECT id FROM sales WHERE product_type = 'Medical')
+    """)
+    
+    # Delete medical sales
+    cur.execute("DELETE FROM sales WHERE product_type = 'Medical'")
+    
+    mysql.connection.commit()
+    cur.close()
+    
+    flash("Medical sales cleared successfully!", "success")
+    return redirect(url_for('medical_sales'))
+
+@app.route('/clear_nonmedical_sales', methods=['POST'])
+@admin_required
+def clear_nonmedical_sales():
+    cur = mysql.connection.cursor()
+    
+    # Delete sale_items for non-medical sales
+    cur.execute("""
+        DELETE FROM sale_items 
+        WHERE sale_id IN (SELECT id FROM sales WHERE product_type = 'Non-Medical')
+    """)
+    
+    # Delete non-medical sales
+    cur.execute("DELETE FROM sales WHERE product_type = 'Non-Medical'")
+    
+    mysql.connection.commit()
+    cur.close()
+    
+    flash("Non-Medical sales cleared successfully!", "success")
+    return redirect(url_for('non_medical_sales'))
 
 # =============================
 # INVENTORY
@@ -1432,6 +1502,9 @@ def complete_sale():
                 UPDATE products SET stock = stock - %s WHERE id = %s
             """, (item['quantity'], item['id']))
             
+            # Auto-delete product if stock becomes 0
+            cur.execute("DELETE FROM products WHERE id = %s AND stock <= 0", (item['id'],))
+            
             cur.execute("""
                 INSERT INTO stock_movements (product_id, movement_type, quantity, reason)
                 VALUES (%s, 'OUT', %s, 'Sale')
@@ -1467,6 +1540,9 @@ def complete_sale():
             cur.execute("""
                 UPDATE products SET stock = stock - %s WHERE id = %s
             """, (item['quantity'], item['id']))
+            
+            # Auto-delete product if stock becomes 0
+            cur.execute("DELETE FROM products WHERE id = %s AND stock <= 0", (item['id'],))
             
             cur.execute("""
                 INSERT INTO stock_movements (product_id, movement_type, quantity, reason)

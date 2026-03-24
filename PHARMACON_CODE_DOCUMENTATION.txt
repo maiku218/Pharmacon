@@ -820,6 +820,10 @@ Features:
 - Session duration calculation
 - Online/Offline status badges
 - IP address tracking
+- Logout reason tracking (Manual, Timeout, System)
+- Actions column showing activity details
+- Cashier name with profile icon
+- Timestamp with relative time display
 
 --- inventory_out_of_stock.html ---
 Extends: admin_dashboard.html
@@ -839,6 +843,19 @@ Features:
 - Expired/Expiring Soon badges
 - Shows: Name, Barcode, Price, Expiry Date, Status
 
+--- sales_dashboard.html ---
+Extends: admin_dashboard.html
+Route: /sales_dashboard
+Active States: active_main='sales', active_sub='sales_dashboard'
+Features:
+- Overview of all sales performance
+- 5 summary cards: Today, This Week, This Month, This Year, Overall
+- Medical vs Non-Medical sales breakdown
+- Daily sales chart (Last 30 Days) - Chart.js
+- Top selling products list
+- Clear All button (clears all sales data)
+- Flash messages for notifications
+
 --- sales_medical.html ---
 Extends: admin_dashboard.html
 Route: /medical_sales
@@ -846,7 +863,9 @@ Active States: active_main='sales', active_sub='medical_sales'
 Features:
 - Medical product sales history
 - 30-day sales chart (Chart.js)
-- Shows: ID, Receipt #, Total, Date, Status
+- Shows: Receipt #, Product Name, Total, Date, Status
+- Clear Medical button (clears only medical sales)
+- Flash messages for notifications
 
 --- sales_non_medical.html ---
 Extends: admin_dashboard.html
@@ -856,6 +875,9 @@ Features:
 - Non-medical product sales history
 - 30-day sales chart (Chart.js)
 - Green color scheme for chart
+- Shows: Receipt #, Product Name, Total, Date, Status
+- Clear Non-Medical button (clears only non-medical sales)
+- Flash messages for notifications
 
 --- register_cashier.html ---
 Extends: admin_dashboard.html

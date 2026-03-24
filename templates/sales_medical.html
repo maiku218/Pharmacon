@@ -4,6 +4,16 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div style="padding: 15px; margin-bottom: 20px; border-radius: 8px; background: {% if category == 'success' %}#d1fae5{% else %}#fee2e2{% endif %}; color: {% if category == 'success' %}#065f46{% else %}#991b1b{% endif %}; font-weight: 600;">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
 <div class="content-card" style="padding: 30px;">
     <a href="{{ url_for('admin_dashboard') }}" style="display: inline-block; margin-bottom: 20px; color: var(--orange); text-decoration: none; font-weight: 600;">← Back to Dashboard</a>
     
@@ -26,7 +36,12 @@
     
     {% if chart_labels %}
     <div style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
-        <h3 style="margin: 0 0 15px 0; color: #1e1e2f;">Sales Chart (Last 30 Days)</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #1e1e2f;">Sales Chart (Last 30 Days)</h3>
+            <form method="POST" action="{{ url_for('clear_medical_sales') }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete all Medical sales data?');">
+                <button type="submit" style="padding: 8px 16px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Clear Medical</button>
+            </form>
+        </div>
         <canvas id="salesChart" style="max-height: 250px;"></canvas>
     </div>
     {% endif %}

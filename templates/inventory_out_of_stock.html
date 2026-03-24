@@ -25,17 +25,17 @@
         <tr style="border-bottom: 1px solid #eee;">
             <td style="padding: 12px;"><strong>{{ p[1] }}</strong></td>
             <td style="padding: 12px;">{{ p[2] }}</td>
-            <td style="padding: 12px;">₱{{ p[4] }}</td>
+            <td style="padding: 12px;">₱{{ p[5] }}</td>
             <td style="padding: 12px;">
-                {% if p[5] == 0 %}
+                {% if p[6] == 0 %}
                 <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #fee2e2; color: #dc2626;">OUT OF STOCK</span>
-                {% elif p[5] <= 5 %}
-                <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #fee2e2; color: #dc2626;">{{ p[5] }} (Critical)</span>
+                {% elif p[6] <= 5 %}
+                <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #fee2e2; color: #dc2626;">{{ p[6] }} (Critical)</span>
                 {% else %}
-                <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #fef3c7; color: #d97706;">{{ p[5] }} (Low)</span>
+                <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #fef3c7; color: #d97706;">{{ p[6] }} (Low)</span>
                 {% endif %}
             </td>
-            <td style="padding: 12px;">{{ p[3] }}</td>
+            <td style="padding: 12px;">{{ p[4] }}</td>
         </tr>
         {% endfor %}
         </tbody>
