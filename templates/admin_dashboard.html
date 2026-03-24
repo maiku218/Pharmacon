@@ -307,7 +307,7 @@
     </div>
     
     <div class="nav-item {% if active_main == 'catalog' %}active{% endif %}" onclick="toggleMenu('catalog-menu')">
-        Catalog
+        Inventory
     </div>
     <div class="submenu" id="catalog-menu" style="display: {% if active_main == 'catalog' %}flex{% else %}none{% endif %}">
         <a href="{{ url_for('all_products') }}" class="{% if active_sub == 'all_products' %}active{% endif %}">All Products</a>
@@ -324,7 +324,7 @@
     </div>
 
     <div class="nav-item {% if active_main == 'inventory' %}active{% endif %}" onclick="toggleMenu('inv-menu')">
-        Inventory
+        Inventory Alerts
     </div>
     <div class="submenu" id="inv-menu" style="display: {% if active_main == 'inventory' %}flex{% else %}none{% endif %}">
         <a href="{{ url_for('out_of_stock') }}" class="{% if active_sub == 'out_of_stock' %}active{% endif %}">Low Stock Alerts</a>
