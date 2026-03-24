@@ -108,3 +108,13 @@ VALUES ('admin', 'scrypt:32768:8:1$rJfOriv0msJHOVQT$00f8266d42bd6a0b3d79d169bf1e
 INSERT INTO categories (category_name, description) VALUES 
 ('Medical', 'Medical products and medicines'),
 ('Non-Medical', 'Supplies and hygiene products');
+
+-- Fix: Update product types to use correct case ('Medical', 'Non-Medical')
+-- This fixes the case sensitivity issue where products were stored as lowercase
+UPDATE products SET type = 'Medical' WHERE type = 'medical';
+UPDATE products SET type = 'Non-Medical' WHERE type = 'non_medical';
+
+-- Fix: Update sales product_type to use correct case
+-- This ensures sales are properly categorized in reports
+UPDATE sales SET product_type = 'Medical' WHERE product_type = 'medical';
+UPDATE sales SET product_type = 'Non-Medical' WHERE product_type = 'non_medical';

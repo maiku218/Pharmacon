@@ -344,7 +344,7 @@ def add_product():
                                active_main='catalog', 
                                active_sub='add_product')
         
-        p_type = 'medical' if category_name == 'Medical' else 'non_medical'
+        p_type = category_name  # 'Medical' or 'Non-Medical'
         
         # Convert to proper types
         try:
@@ -558,7 +558,7 @@ def delete_product(id):
 @admin_required
 def medical_sales():
     cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM sales WHERE product_type='medical'")
+    cur.execute("SELECT * FROM sales WHERE product_type='Medical'")
     sales = cur.fetchall()
     
     cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
@@ -571,7 +571,7 @@ def medical_sales():
     cur.execute("""
         SELECT DATE(sale_date) as day, SUM(total_amount) as daily_total
         FROM sales
-        WHERE product_type='medical' AND sale_date >= CURDATE() - INTERVAL 30 DAY AND sale_status = 'Completed'
+        WHERE product_type='Medical' AND sale_date >= CURDATE() - INTERVAL 30 DAY AND sale_status = 'Completed'
         GROUP BY DATE(sale_date)
         ORDER BY day ASC
     """)
@@ -598,54 +598,108 @@ def sales_dashboard():
     cur.execute("SELECT COUNT(*) FROM products WHERE expiration_date <= CURDATE() + INTERVAL 30 DAY AND expiration_date IS NOT NULL")
     expiring_count = cur.fetchone()[0]
     
-    # Daily sales (today)
+    # Daily sales (today) - Medical
     cur.execute("""
         SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
         FROM sales 
-        WHERE DATE(sale_date) = CURDATE() AND sale_status = 'Completed'
+        WHERE DATE(sale_date) = CURDATE() AND sale_status = 'Completed' AND product_type = 'Medical'
     """)
-    daily = cur.fetchone()
-    daily_sales = float(daily[0]) if daily[0] else 0
-    daily_count = daily[1] if daily[1] else 0
+    daily_medical = cur.fetchone()
+    daily_medical_sales = float(daily_medical[0]) if daily_medical[0] else 0
     
-    # Weekly sales (last 7 days)
+    # Daily sales (today) - Non-Medical
     cur.execute("""
         SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
         FROM sales 
-        WHERE sale_date >= CURDATE() - INTERVAL 7 DAY AND sale_status = 'Completed'
+        WHERE DATE(sale_date) = CURDATE() AND sale_status = 'Completed' AND product_type = 'Non-Medical'
     """)
-    weekly = cur.fetchone()
-    weekly_sales = float(weekly[0]) if weekly[0] else 0
-    weekly_count = weekly[1] if weekly[1] else 0
+    daily_nonmedical = cur.fetchone()
+    daily_nonmedical_sales = float(daily_nonmedical[0]) if daily_nonmedical[0] else 0
     
-    # Monthly sales (this month)
+    daily_sales = daily_medical_sales + daily_nonmedical_sales
+    daily_count = daily_medical[1] if daily_medical[1] else 0
+    
+    # Weekly sales (last 7 days) - Medical
     cur.execute("""
         SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
         FROM sales 
-        WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE()) AND sale_status = 'Completed'
+        WHERE sale_date >= CURDATE() - INTERVAL 7 DAY AND sale_status = 'Completed' AND product_type = 'Medical'
     """)
-    monthly = cur.fetchone()
-    monthly_sales = float(monthly[0]) if monthly[0] else 0
-    monthly_count = monthly[1] if monthly[1] else 0
+    weekly_medical = cur.fetchone()
+    weekly_medical_sales = float(weekly_medical[0]) if weekly_medical[0] else 0
     
-    # Yearly sales (this year)
+    # Weekly sales (last 7 days) - Non-Medical
     cur.execute("""
         SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
         FROM sales 
-        WHERE YEAR(sale_date) = YEAR(CURDATE()) AND sale_status = 'Completed'
+        WHERE sale_date >= CURDATE() - INTERVAL 7 DAY AND sale_status = 'Completed' AND product_type = 'Non-Medical'
     """)
-    yearly = cur.fetchone()
-    yearly_sales = float(yearly[0]) if yearly[0] else 0
-    yearly_count = yearly[1] if yearly[1] else 0
+    weekly_nonmedical = cur.fetchone()
+    weekly_nonmedical_sales = float(weekly_nonmedical[0]) if weekly_nonmedical[0] else 0
     
-    # Overall sales
+    weekly_sales = weekly_medical_sales + weekly_nonmedical_sales
+    weekly_count = weekly_medical[1] if weekly_medical[1] else 0
+    
+    # Monthly sales (this month) - Medical
     cur.execute("""
         SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
-        FROM sales WHERE sale_status = 'Completed'
+        FROM sales 
+        WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE()) AND sale_status = 'Completed' AND product_type = 'Medical'
     """)
-    overall = cur.fetchone()
-    overall_sales = float(overall[0]) if overall[0] else 0
-    overall_count = overall[1] if overall[1] else 0
+    monthly_medical = cur.fetchone()
+    monthly_medical_sales = float(monthly_medical[0]) if monthly_medical[0] else 0
+    
+    # Monthly sales (this month) - Non-Medical
+    cur.execute("""
+        SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
+        FROM sales 
+        WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE()) AND sale_status = 'Completed' AND product_type = 'Non-Medical'
+    """)
+    monthly_nonmedical = cur.fetchone()
+    monthly_nonmedical_sales = float(monthly_nonmedical[0]) if monthly_nonmedical[0] else 0
+    
+    monthly_sales = monthly_medical_sales + monthly_nonmedical_sales
+    monthly_count = monthly_medical[1] if monthly_medical[1] else 0
+    
+    # Yearly sales (this year) - Medical
+    cur.execute("""
+        SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
+        FROM sales 
+        WHERE YEAR(sale_date) = YEAR(CURDATE()) AND sale_status = 'Completed' AND product_type = 'Medical'
+    """)
+    yearly_medical = cur.fetchone()
+    yearly_medical_sales = float(yearly_medical[0]) if yearly_medical[0] else 0
+    
+    # Yearly sales (this year) - Non-Medical
+    cur.execute("""
+        SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
+        FROM sales 
+        WHERE YEAR(sale_date) = YEAR(CURDATE()) AND sale_status = 'Completed' AND product_type = 'Non-Medical'
+    """)
+    yearly_nonmedical = cur.fetchone()
+    yearly_nonmedical_sales = float(yearly_nonmedical[0]) if yearly_nonmedical[0] else 0
+    
+    yearly_sales = yearly_medical_sales + yearly_nonmedical_sales
+    yearly_count = yearly_medical[1] if yearly_medical[1] else 0
+    
+    # Overall sales - Medical
+    cur.execute("""
+        SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
+        FROM sales WHERE sale_status = 'Completed' AND product_type = 'Medical'
+    """)
+    overall_medical = cur.fetchone()
+    overall_medical_sales = float(overall_medical[0]) if overall_medical[0] else 0
+    
+    # Overall sales - Non-Medical
+    cur.execute("""
+        SELECT IFNULL(SUM(total_amount), 0), COUNT(*) 
+        FROM sales WHERE sale_status = 'Completed' AND product_type = 'Non-Medical'
+    """)
+    overall_nonmedical = cur.fetchone()
+    overall_nonmedical_sales = float(overall_nonmedical[0]) if overall_nonmedical[0] else 0
+    
+    overall_sales = overall_medical_sales + overall_nonmedical_sales
+    overall_count = overall_medical[1] if overall_medical[1] else 0
     
     # Popular products (top 10)
     cur.execute("""
@@ -658,17 +712,33 @@ def sales_dashboard():
     """)
     popular = cur.fetchall()
     
-    # Daily sales for chart (last 30 days)
+    # Daily sales for chart - Medical (last 30 days)
     cur.execute("""
         SELECT DATE(sale_date) as day, SUM(total_amount) as daily_total
         FROM sales
-        WHERE sale_date >= CURDATE() - INTERVAL 30 DAY AND sale_status = 'Completed'
+        WHERE sale_date >= CURDATE() - INTERVAL 30 DAY AND sale_status = 'Completed' AND product_type = 'Medical'
         GROUP BY DATE(sale_date)
         ORDER BY day ASC
     """)
-    chart_data = cur.fetchall()
-    chart_labels = [str(row[0]) for row in chart_data]
-    chart_values = [float(row[1]) for row in chart_data]
+    chart_medical = cur.fetchall()
+    medical_labels = [str(row[0]) for row in chart_medical]
+    medical_values = [float(row[1]) for row in chart_medical]
+    
+    # Daily sales for chart - Non-Medical (last 30 days)
+    cur.execute("""
+        SELECT DATE(sale_date) as day, SUM(total_amount) as daily_total
+        FROM sales
+        WHERE sale_date >= CURDATE() - INTERVAL 30 DAY AND sale_status = 'Completed' AND product_type = 'Non-Medical'
+        GROUP BY DATE(sale_date)
+        ORDER BY day ASC
+    """)
+    chart_nonmedical = cur.fetchall()
+    nonmedical_labels = [str(row[0]) for row in chart_nonmedical]
+    nonmedical_values = [float(row[1]) for row in chart_nonmedical]
+    
+    # Use medical labels as primary
+    chart_labels = medical_labels
+    chart_values = medical_values
     
     cur.close()
     
@@ -676,19 +746,31 @@ def sales_dashboard():
                            low_stock_count=low_stock_count,
                            expiring_count=expiring_count,
                            daily_sales=daily_sales, daily_count=daily_count,
+                           daily_medical_sales=daily_medical_sales,
+                           daily_nonmedical_sales=daily_nonmedical_sales,
                            weekly_sales=weekly_sales, weekly_count=weekly_count,
+                           weekly_medical_sales=weekly_medical_sales,
+                           weekly_nonmedical_sales=weekly_nonmedical_sales,
                            monthly_sales=monthly_sales, monthly_count=monthly_count,
+                           monthly_medical_sales=monthly_medical_sales,
+                           monthly_nonmedical_sales=monthly_nonmedical_sales,
                            yearly_sales=yearly_sales, yearly_count=yearly_count,
+                           yearly_medical_sales=yearly_medical_sales,
+                           yearly_nonmedical_sales=yearly_nonmedical_sales,
                            overall_sales=overall_sales, overall_count=overall_count,
+                           overall_medical_sales=overall_medical_sales,
+                           overall_nonmedical_sales=overall_nonmedical_sales,
                            popular=popular,
                            chart_labels=chart_labels, chart_values=chart_values,
+                           medical_labels=medical_labels, medical_values=medical_values,
+                           nonmedical_labels=nonmedical_labels, nonmedical_values=nonmedical_values,
                            active_main='sales', active_sub='sales_dashboard')
 
 @app.route('/non_medical_sales')
 @admin_required
 def non_medical_sales():
     cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM sales WHERE product_type='non_medical'")
+    cur.execute("SELECT * FROM sales WHERE product_type='Non-Medical'")
     sales = cur.fetchall()
     
     cur.execute("SELECT COUNT(*) FROM products WHERE stock <= %s", (LOW_STOCK_THRESHOLD,))
@@ -701,7 +783,7 @@ def non_medical_sales():
     cur.execute("""
         SELECT DATE(sale_date) as day, SUM(total_amount) as daily_total
         FROM sales
-        WHERE product_type='non_medical' AND sale_date >= CURDATE() - INTERVAL 30 DAY AND sale_status = 'Completed'
+        WHERE product_type='Non-Medical' AND sale_date >= CURDATE() - INTERVAL 30 DAY AND sale_status = 'Completed'
         GROUP BY DATE(sale_date)
         ORDER BY day ASC
     """)
@@ -1286,53 +1368,105 @@ def complete_sale():
     
     cur = mysql.connection.cursor()
     
-    receipt_number = f"REC-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
-    total_amount = sum(item['price'] * item['quantity'] for item in items)
-    
-    if items:
-        cur.execute("SELECT type FROM products WHERE id = %s", (items[0]['id'],))
-        product_type = cur.fetchone()
-        product_type = product_type[0] if product_type else 'non_medical'
-    else:
-        product_type = 'non_medical'
-    
-    cur.execute("""
-        INSERT INTO sales (receipt_number, cashier_id, total_amount, sale_status, product_type, sale_date)
-        VALUES (%s, %s, %s, 'Completed', %s, NOW())
-    """, (receipt_number, session['cashier_id'], total_amount, product_type))
-    
-    sale_id = cur.lastrowid
+    # Separate items by type
+    medical_items = []
+    non_medical_items = []
     
     for item in items:
-        cur.execute("""
-            INSERT INTO sale_items (sale_id, product_id, quantity, price)
-            VALUES (%s, %s, %s, %s)
-        """, (sale_id, item['id'], item['quantity'], item['price']))
+        cur.execute("SELECT type FROM products WHERE id = %s", (item['id'],))
+        result = cur.fetchone()
+        product_type = result[0] if result else 'Non-Medical'
+        
+        if product_type == 'Medical':
+            medical_items.append(item)
+        else:
+            non_medical_items.append(item)
+    
+    receipt_numbers = []
+    receipt_items = []
+    total_amount = 0
+    
+    # Process Medical items - create separate sale record
+    if medical_items:
+        receipt_number = f"REC-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+        receipt_numbers.append(receipt_number)
+        medical_total = sum(item['price'] * item['quantity'] for item in medical_items)
+        total_amount += medical_total
         
         cur.execute("""
-            UPDATE products SET stock = stock - %s WHERE id = %s
-        """, (item['quantity'], item['id']))
+            INSERT INTO sales (receipt_number, cashier_id, total_amount, sale_status, product_type, sale_date)
+            VALUES (%s, %s, %s, 'Completed', 'Medical', NOW())
+        """, (receipt_number, session['cashier_id'], medical_total))
+        
+        sale_id = cur.lastrowid
+        
+        for item in medical_items:
+            cur.execute("""
+                INSERT INTO sale_items (sale_id, product_id, quantity, price)
+                VALUES (%s, %s, %s, %s)
+            """, (sale_id, item['id'], item['quantity'], item['price']))
+            
+            cur.execute("""
+                UPDATE products SET stock = stock - %s WHERE id = %s
+            """, (item['quantity'], item['id']))
+            
+            cur.execute("""
+                INSERT INTO stock_movements (product_id, movement_type, quantity, reason)
+                VALUES (%s, 'OUT', %s, 'Sale')
+            """, (item['id'], item['quantity']))
+            
+            receipt_items.append({
+                'name': item['name'],
+                'quantity': item['quantity'],
+                'price': item['price'],
+                'subtotal': item['price'] * item['quantity']
+            })
+    
+    # Process Non-Medical items - create separate sale record
+    if non_medical_items:
+        receipt_number = f"REC-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+        receipt_numbers.append(receipt_number)
+        non_medical_total = sum(item['price'] * item['quantity'] for item in non_medical_items)
+        total_amount += non_medical_total
         
         cur.execute("""
-            INSERT INTO stock_movements (product_id, movement_type, quantity, reason)
-            VALUES (%s, 'OUT', %s, 'Sale')
-        """, (item['id'], item['quantity']))
+            INSERT INTO sales (receipt_number, cashier_id, total_amount, sale_status, product_type, sale_date)
+            VALUES (%s, %s, %s, 'Completed', 'Non-Medical', NOW())
+        """, (receipt_number, session['cashier_id'], non_medical_total))
+        
+        sale_id = cur.lastrowid
+        
+        for item in non_medical_items:
+            cur.execute("""
+                INSERT INTO sale_items (sale_id, product_id, quantity, price)
+                VALUES (%s, %s, %s, %s)
+            """, (sale_id, item['id'], item['quantity'], item['price']))
+            
+            cur.execute("""
+                UPDATE products SET stock = stock - %s WHERE id = %s
+            """, (item['quantity'], item['id']))
+            
+            cur.execute("""
+                INSERT INTO stock_movements (product_id, movement_type, quantity, reason)
+                VALUES (%s, 'OUT', %s, 'Sale')
+            """, (item['id'], item['quantity']))
+            
+            receipt_items.append({
+                'name': item['name'],
+                'quantity': item['quantity'],
+                'price': item['price'],
+                'subtotal': item['price'] * item['quantity']
+            })
     
     mysql.connection.commit()
     cur.close()
     
-    receipt_items = []
-    for item in items:
-        receipt_items.append({
-            'name': item['name'],
-            'quantity': item['quantity'],
-            'price': item['price'],
-            'subtotal': item['price'] * item['quantity']
-        })
+    # Return main receipt number (first one) for display
+    main_receipt = receipt_numbers[0] if receipt_numbers else 'N/A'
     
     return jsonify({
         'success': True,
-        'receipt_number': receipt_number,
+        'receipt_number': main_receipt,
         'total': total_amount,
         'items': receipt_items,
         'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')

@@ -3,28 +3,6 @@
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Notification Bell -->
-<div class="notification-container">
-    <div class="notification-bell" onclick="toggleNotifications()">
-        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
-        {% if low_stock_count + expiring_count > 0 %}
-        <span class="notification-badge">{{ low_stock_count + expiring_count }}</span>
-        {% endif %}
-    </div>
-    <div class="notification-dropdown" id="notificationDropdown">
-        <div class="notification-header">
-            <span>Notifications</span>
-            <div style="display:flex;gap:5px;margin-top:5px;">
-                <a href="/out_of_stock" style="font-size:10px;padding:2px 6px;background:#fee2e2;color:#dc2626;border-radius:3px;text-decoration:none;">Low Stock</a>
-                <a href="/expiring_medical" style="font-size:10px;padding:2px 6px;background:#fef3c7;color:#d97706;border-radius:3px;text-decoration:none;">Expiring</a>
-            </div>
-        </div>
-        <div id="notificationList">
-            <div class="no-notifications">Loading...</div>
-        </div>
-    </div>
-</div>
-
 <div class="content-card" style="padding: 20px;">
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
@@ -40,31 +18,46 @@
         <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
             <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Today</div>
             <div style="font-size: 24px; font-weight: 900; color: #fb923c; margin: 10px 0;">₱{{ "%.2f"|format(daily_sales) }}</div>
-            <div style="font-size: 12px; color: #94a3b8;">{{ daily_count }} transactions</div>
+            <div style="font-size: 11px; color: #94a3b8;">
+                <span style="color: #fb923c;">M: ₱{{ "%.2f"|format(daily_medical_sales) }}</span><br>
+                <span style="color: #4ade80;">NM: ₱{{ "%.2f"|format(daily_nonmedical_sales) }}</span>
+            </div>
         </div>
 
         <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
             <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">This Week</div>
             <div style="font-size: 24px; font-weight: 900; color: #4ade80; margin: 10px 0;">₱{{ "%.2f"|format(weekly_sales) }}</div>
-            <div style="font-size: 12px; color: #94a3b8;">{{ weekly_count }} transactions</div>
+            <div style="font-size: 11px; color: #94a3b8;">
+                <span style="color: #fb923c;">M: ₱{{ "%.2f"|format(weekly_medical_sales) }}</span><br>
+                <span style="color: #4ade80;">NM: ₱{{ "%.2f"|format(weekly_nonmedical_sales) }}</span>
+            </div>
         </div>
 
         <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
             <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">This Month</div>
             <div style="font-size: 24px; font-weight: 900; color: #60a5fa; margin: 10px 0;">₱{{ "%.2f"|format(monthly_sales) }}</div>
-            <div style="font-size: 12px; color: #94a3b8;">{{ monthly_count }} transactions</div>
+            <div style="font-size: 11px; color: #94a3b8;">
+                <span style="color: #fb923c;">M: ₱{{ "%.2f"|format(monthly_medical_sales) }}</span><br>
+                <span style="color: #4ade80;">NM: ₱{{ "%.2f"|format(monthly_nonmedical_sales) }}</span>
+            </div>
         </div>
 
         <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
             <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">This Year</div>
             <div style="font-size: 24px; font-weight: 900; color: #a78bfa; margin: 10px 0;">₱{{ "%.2f"|format(yearly_sales) }}</div>
-            <div style="font-size: 12px; color: #94a3b8;">{{ yearly_count }} transactions</div>
+            <div style="font-size: 11px; color: #94a3b8;">
+                <span style="color: #fb923c;">M: ₱{{ "%.2f"|format(yearly_medical_sales) }}</span><br>
+                <span style="color: #4ade80;">NM: ₱{{ "%.2f"|format(yearly_nonmedical_sales) }}</span>
+            </div>
         </div>
 
         <div class="glass" style="padding: 20px; text-align: center; border-radius: 16px;">
             <div style="font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Overall</div>
             <div style="font-size: 24px; font-weight: 900; color: #f472b6; margin: 10px 0;">₱{{ "%.2f"|format(overall_sales) }}</div>
-            <div style="font-size: 12px; color: #94a3b8;">{{ overall_count }} transactions</div>
+            <div style="font-size: 11px; color: #94a3b8;">
+                <span style="color: #fb923c;">M: ₱{{ "%.2f"|format(overall_medical_sales) }}</span><br>
+                <span style="color: #4ade80;">NM: ₱{{ "%.2f"|format(overall_nonmedical_sales) }}</span>
+            </div>
         </div>
 
     </div>
@@ -74,8 +67,12 @@
         
         <!-- Daily Sales Chart -->
         <div class="glass" style="padding: 25px; border-radius: 16px;">
-            <h3 style="margin: 0 0 20px 0; font-size: 16px; color: white;">Daily Sales (Last 30 Days)</h3>
+            <h3 style="margin: 0 0 20px 0; font-size: 16px; color: white;">Daily Sales - Medical vs Non-Medical (Last 30 Days)</h3>
             <canvas id="salesChart" height="150"></canvas>
+            <div style="margin-top: 15px; text-align: center;">
+                <span style="color: #fb923c; font-weight: 600;">● Medical</span>
+                <span style="margin-left: 20px; color: #4ade80; font-weight: 600;">● Non-Medical</span>
+            </div>
         </div>
 
         <!-- Popular Products -->
@@ -107,15 +104,25 @@ const ctx = document.getElementById('salesChart');
 new Chart(ctx, {
     type: 'line',
     data: {
-        labels: {{ chart_labels | tojson }},
-        datasets: [{
-            label: 'Daily Sales (₱)',
-            data: {{ chart_values | tojson }},
-            borderColor: '#fb923c',
-            backgroundColor: 'rgba(251,146,60,0.1)',
-            tension: 0.4,
-            fill: true
-        }]
+        labels: {{ medical_labels | tojson }},
+        datasets: [
+            {
+                label: 'Medical Sales (₱)',
+                data: {{ medical_values | tojson }},
+                borderColor: '#fb923c',
+                backgroundColor: 'rgba(251,146,60,0.1)',
+                tension: 0.4,
+                fill: true
+            },
+            {
+                label: 'Non-Medical Sales (₱)',
+                data: {{ nonmedical_values | tojson }},
+                borderColor: '#4ade80',
+                backgroundColor: 'rgba(74,222,128,0.1)',
+                tension: 0.4,
+                fill: true
+            }
+        ]
     },
     options: {
         responsive: true,
@@ -128,70 +135,10 @@ new Chart(ctx, {
                 grid: { color: 'rgba(255,255,255,0.05)' }
             },
             y: {
-                ticks: { color: 'white' },
+                ticks: { color: 'white', callback: function(value) { return '₱' + value; } },
                 grid: { color: 'rgba(255,255,255,0.05)' }
             }
         }
-    }
-});
-</script>
-
-<script>
-function toggleNotifications() {
-    const dropdown = document.getElementById('notificationDropdown');
-    dropdown.classList.toggle('show');
-    
-    if (dropdown.classList.contains('show')) {
-        loadNotifications();
-    }
-}
-
-function loadNotifications() {
-    fetch('/api/notifications')
-        .then(res => res.json())
-        .then(data => {
-            const list = document.getElementById('notificationList');
-            let html = '';
-            
-            // Low Stock
-            if (data.low_stock.length > 0) {
-                html += '<div class="notification-section">';
-                html += '<h4>Low Stock</h4>';
-                data.low_stock.forEach(item => {
-                    html += `<div class="notification-item low-stock" onclick="window.location.href='/out_of_stock'">
-                        <div class="notification-item-name">${item.name}</div>
-                        <div class="notification-item-detail">Stock: ${item.stock} | Barcode: ${item.barcode}</div>
-                    </div>`;
-                });
-                html += '</div>';
-            }
-            
-            // Expiring
-            if (data.expiring.length > 0) {
-                html += '<div class="notification-section">';
-                html += '<h4>Expiring Soon</h4>';
-                data.expiring.forEach(item => {
-                    html += `<div class="notification-item expiring" onclick="window.location.href='/expiring_medical'">
-                        <div class="notification-item-name">${item.name}</div>
-                        <div class="notification-item-detail">Expires: ${item.expiry} | Barcode: ${item.barcode}</div>
-                    </div>`;
-                });
-                html += '</div>';
-            }
-            
-            if (!html) {
-                html = '<div class="no-notifications">No notifications</div>';
-            }
-            
-            list.innerHTML = html;
-        });
-}
-
-// Close notification dropdown when clicking outside
-document.addEventListener('click', function(e) {
-    const container = document.querySelector('.notification-container');
-    if (container && !container.contains(e.target)) {
-        document.getElementById('notificationDropdown').classList.remove('show');
     }
 });
 </script>

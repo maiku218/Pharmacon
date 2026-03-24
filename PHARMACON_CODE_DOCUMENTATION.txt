@@ -6,8 +6,51 @@ This document explains every syntax and code in your PharmaCon pharmacy
 management system. The system is built using Python (Flask) for the backend 
 and HTML/CSS/JavaScript for the frontend.
 
+Last Updated: 2026-03-23
+Version: 2.1 (Template Inheritance Update)
+
 ================================================================================
-                         PART 1: PYTHON BACKEND (app.py)
+                         TABLE OF CONTENTS
+================================================================================
+
+PART 1: PYTHON BACKEND (app.py)
+    1.1  - Importing Modules
+    1.2  - Flask App Configuration
+    1.3  - MySQL Database Configuration
+    1.4  - Custom Functions
+    1.5  - Decorators (Admin & Cashier Authentication)
+    1.6  - Flask Routes Overview
+    1.7  - Database Operations
+    1.8  - SQL Commands Explained
+    1.9  - Session Management
+    1.10 - Flash Messages
+    1.11 - JSON API Responses
+    1.12 - Request Handling
+    1.13 - Conditional Logic
+    1.14 - Loops
+
+PART 2: HTML TEMPLATES (Jinja2)
+    2.1  - Basic HTML Structure
+    2.2  - Jinja2 Template Syntax
+    2.3  - Template Inheritance
+    2.4  - Admin Dashboard Base Template
+    2.5  - Admin Sub-Page Templates
+    2.6  - Forms and Input Handling
+    2.7  - JavaScript Integration
+
+PART 3: DATABASE SCHEMA (database.sql)
+    3.1  - Tables Overview
+    3.2  - Table Relationships
+    3.3  - Default Data
+
+PART 4: ROUTES REFERENCE
+    4.1  - Admin Routes
+    4.2  - Cashier Routes
+    4.3  - API Routes
+    4.4  - Logout Routes
+
+================================================================================
+                     PART 1: PYTHON BACKEND (app.py)
 ================================================================================
 
 ================================================================================
@@ -23,7 +66,6 @@ What are imports?
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_mysqldb import MySQL
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import jsonify
 from datetime import datetime
 import random
 
@@ -67,9 +109,11 @@ SECTION 1.2: FLASK APP CONFIGURATION
 --- CODE: ---
 app = Flask(__name__)
 app.secret_key = "simple_secret_key"
-app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_PERMANENT'] = True  # Session persists on browser close
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+app.config['SESSION_COOKIE_NAME'] = 'pharmacon_session'
 
 --- EXPLANATION: ---
 
@@ -83,17 +127,33 @@ app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
    - This keeps user sessions secure
    - Should be a long random string in production
 
-3. app.config['SESSION_PERMANENT'] = False
-   - False means session ends when browser is closed
-   - True means session lasts until PERMANENT_SESSION_LIFETIME
+3. app.config['SESSION_PERMANENT'] = True
+   - True means session persists even when browser is closed
+   - Session lasts until PERMANENT_SESSION_LIFETIME expires
 
 4. app.config['SESSION_COOKIE_HTTPONLY'] = True
    - Prevents JavaScript from accessing the session cookie
    - Protects against XSS (Cross-Site Scripting) attacks
 
-5. app.config['PERMANENT_SESSION_LIFETIME'] = 3600
-   - Session lasts 3600 seconds = 1 hour
-   - After 1 hour of inactivity, user is logged out
+5. app.config['SESSION_COOKIE_SECURE'] = False
+   - False for HTTP development, True for HTTPS production
+   - Ensures cookie is only sent over encrypted connections
+
+6. app.config['PERMANENT_SESSION_LIFETIME'] = 86400
+   - Session lasts 86400 seconds = 24 hours
+   - After 24 hours of inactivity, user is logged out
+
+7. app.config['SESSION_COOKIE_NAME'] = 'pharmacon_session'
+   - Names the session cookie for better identification
+   - Allows separate handling of admin and cashier sessions
+
+--- CONTEXT PROCESSOR (ADDING DATETIME TO ALL TEMPLATES): ---
+from datetime import datetime
+@app.context_processor
+def inject_datetime():
+    return dict(datetime=datetime)
+
+This makes the datetime module available in all templates automatically.
 
 ================================================================================
 SECTION 1.3: MYSQL DATABASE CONFIGURATION
@@ -128,6 +188,12 @@ mysql = MySQL(app)
 
 5. mysql = MySQL(app)
    - Initializes the MySQL connection with Flask app
+
+--- LOW STOCK THRESHOLD: ---
+LOW_STOCK_THRESHOLD = 10
+
+This constant defines when products are considered "low stock" and will
+appear in low stock alerts and notifications.
 
 ================================================================================
 SECTION 1.4: CUSTOM FUNCTIONS
@@ -164,7 +230,7 @@ def admin_required(f):
     from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user' not in session or session.get('role') != 'admin':
+        if 'admin_user' not in session or session.get('role') != 'admin':
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -175,8 +241,10 @@ def cashier_required(f):
     def decorated_function(*args, **kwargs):
         if 'role' not in session or session['role'] != 'cashier':
             return redirect(url_for('cashier_login'))
-        if 'user_id' not in session:
-            session.clear()
+        if 'cashier_id' not in session:
+            session.pop('cashier_user', None)
+            session.pop('cashier_id', None)
+            session.pop('role', None)
             return redirect(url_for('cashier_login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -196,16 +264,18 @@ def cashier_required(f):
    - This is the wrapper function
    - *args, **kwargs allow passing any number of arguments
 
-4. if 'user' not in session or session.get('role') != 'admin':
-   - Checks if user is logged in AND has admin role
+4. if 'admin_user' not in session or session.get('role') != 'admin':
+   - Checks if user is logged in as admin using 'admin_user' key
+   - Also verifies role is 'admin'
    - If not, redirects to admin login page
 
-5. return f(*args, **kwargs)
-   - If user is authorized, runs the original function
-   - Returns the result of the protected route
+5. cashier_required decorator:
+   - Checks if 'role' is 'cashier'
+   - Also verifies 'cashier_id' exists in session
+   - Clears session keys if cashier_id is missing (invalidates session)
 
-6. @admin_required
-   - This decorator is placed BEFORE any admin-only route
+6. @admin_required / @cashier_required
+   - These decorators are placed BEFORE any protected route
    - Example: @app.route('/admin') @admin_required def admin_dashboard()
 
 ================================================================================
@@ -237,7 +307,7 @@ def function_name():
    - The function that handles the request
 
 4. return render_template('template.html')
-   - Sends the HTML template to the user's browser
+   - Sends the HTML template to user's browser
 
 ================================================================================
 SECTION 1.7: DATABASE OPERATIONS
@@ -275,6 +345,10 @@ cur.close()
    - Saves (commits) changes to the database
    - Needed after INSERT, UPDATE, DELETE operations
 
+7. cur.lastrowid
+   - Gets the ID of the last inserted row
+   - Useful after INSERT operations
+
 ================================================================================
 SECTION 1.8: SQL COMMANDS EXPLAINED
 ================================================================================
@@ -297,6 +371,12 @@ SELECT COUNT(*) FROM products
 
 SELECT SUM(total_amount) FROM sales
 - Calculates total of all sales amounts
+
+SELECT DATE(sale_date) as day, SUM(total_amount) as daily_total
+FROM sales
+WHERE sale_date >= CURDATE() - INTERVAL 30 DAY
+GROUP BY DATE(sale_date)
+- Gets daily sales totals for the last 30 days
 
 --- INSERT - Adding Data ---
 INSERT INTO products (name, price, stock) VALUES ('Aspirin', 10.50, 100)
@@ -322,37 +402,59 @@ NOW() - Current date and time
 INTERVAL 30 DAY - 30 days from now
 LIKE %query% - Search for partial matches
 LIMIT 10 - Get only 10 results
+IFNULL(value, 0) - Returns value if not NULL, otherwise returns 0
+COALESCE(val1, val2) - Returns first non-NULL value
 
 ================================================================================
 SECTION 1.9: SESSION MANAGEMENT
 ================================================================================
 
---- CODE: ---
-session['user'] = admin[1]
+--- CODE (ADMIN LOGIN): ---
+session['admin_user'] = admin[1]
+session['admin_id'] = admin[0]
 session['role'] = 'admin'
+session.permanent = True
 
-if 'user' in session:
-    # User is logged in
+--- CODE (CASHIER LOGIN): ---
+session['cashier_user'] = cashier[1]
+session['cashier_id'] = cashier[0]
+session['role'] = 'cashier'
+session.permanent = True
 
+--- CODE (CHECKING SESSION): ---
+if 'admin_user' in session:
+    # Admin is logged in
+if 'cashier_user' in session:
+    # Cashier is logged in
+
+--- CODE (LOGOUT): ---
+session.pop('admin_user', None)
+session.pop('admin_id', None)
+session.pop('role', None)
+# OR for cashier:
+session.pop('cashier_user', None)
+session.pop('cashier_id', None)
+session.pop('role', None)
+# OR clear everything:
 session.clear()
-# Logs out user by clearing all session data
 
 --- EXPLANATION: ---
 
-1. session['key'] = value
-   - Stores data that persists across pages
-   - Like a temporary storage for logged-in user info
+1. session['admin_user'] / session['cashier_user']
+   - Stores the username that persists across pages
 
-2. session.get('key')
-   - Gets value from session
-   - Returns None if key doesn't exist (safer than session['key'])
+2. session['admin_id'] / session['cashier_id'
+   - Stores the user ID for database operations
 
-3. 'user' in session
-   - Checks if user is logged in
+3. session['role']
+   - Stores 'admin' or 'cashier' to identify user type
 
-4. session.clear()
-   - Removes all session data
-   - Used for logout
+4. session.permanent = True
+   - Makes session persist until it expires (24 hours)
+
+5. session.pop('key', None)
+   - Removes a specific key from session
+   - None is default if key doesn't exist
 
 ================================================================================
 SECTION 1.10: FLASH MESSAGES
@@ -417,9 +519,15 @@ password = request.form.get('password')
 # Getting URL parameters
 query = request.args.get('q')
 
-# Getting JSON data
+# Getting JSON data (AJAX)
 data = request.get_json()
 items = data.get('items', [])
+
+# Getting headers
+is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+ip_address = request.remote_addr
+if request.headers.get('X-Forwarded-For'):
+    ip_address = request.headers.get('X-Forwarded-For')
 
 --- EXPLANATION: ---
 
@@ -434,6 +542,16 @@ items = data.get('items', [])
 3. request.get_json()
    - Gets JSON data from API request
    - Used for AJAX/Fetch operations
+
+4. request.headers.get('X-Requested-With')
+   - Checks if request is AJAX (XMLHttpRequest)
+   - Used to differentiate between form submit and AJAX
+
+5. request.remote_addr
+   - Gets client's IP address
+
+6. request.headers.get('X-Forwarded-For')
+   - Gets real IP if behind proxy/load balancer
 
 ================================================================================
 SECTION 1.13: CONDITIONAL LOGIC
@@ -454,6 +572,7 @@ if count == 0:              # Equals zero
 if count > 0:               # Greater than
 if 'user' in session:       # Key exists
 if check_password_hash(...): # Password matches
+if request.method == 'POST':  # Form submitted
 
 ================================================================================
 SECTION 1.14: LOOPS
@@ -470,6 +589,9 @@ names = [p[1] for p in products]
 # Dictionary comprehension
 result = [{'id': p[0], 'name': p[1]} for p in products]
 
+# With condition
+active_cashiers = [c for c in cashiers if c[3] == 'active']
+
 --- EXPLANATION: ---
 
 1. for item in list:
@@ -480,7 +602,7 @@ result = [{'id': p[0], 'name': p[1]} for p in products]
    - List comprehension - compact way to create lists
 
 ================================================================================
-                    PART 2: HTML TEMPLATES (Jinja2)
+                     PART 2: HTML TEMPLATES (Jinja2)
 ================================================================================
 
 ================================================================================
@@ -500,433 +622,655 @@ SECTION 2.1: BASIC HTML STRUCTURE
 </head>
 <body>
     <!-- Content goes here -->
+    <script>
+        // JavaScript goes here
+    </script>
 </body>
 </html>
 
 --- EXPLANATION: ---
 
 1. <!DOCTYPE html>
-   - Tells browser this is an HTML5 document
+   - Declares this as an HTML5 document
 
-2. <html lang="en">
-   - Root HTML element with language specification
-   - "en" = English
+2. <meta charset="UTF-8">
+   - Ensures proper character encoding
 
-3. <head>
-   - Contains metadata (data about the page)
-   - Not displayed on the page
-
-4. <meta charset="UTF-8">
-   - Character encoding (allows special characters)
-
-5. <meta name="viewport" content="width=device-width, initial-scale=1.0">
+3. <meta name="viewport" content="width=device-width, initial-scale=1.0">
    - Makes page responsive on mobile devices
-
-6. <title>
-   - Shows in browser tab
-
-7. <style>
-   - Contains CSS (styling rules)
-
-8. <body>
-   - Contains visible page content
 
 ================================================================================
 SECTION 2.2: JINJA2 TEMPLATE SYNTAX
 ================================================================================
 
-Jinja2 is Flask's template engine. It adds dynamic features to HTML.
+--- VARIABLES: ---
+{{ variable_name }}
+{{ product[1] }}          <!-- Tuple/list index -->
+{{ user.full_name }}      <!-- Object attribute -->
 
---- VARIABLES ---
-{{ variable }}
-- Displays variable value
-- Example: {{ product_name }} displays "Aspirin"
-
---- FOR LOOPS ---
-{% for item in items %}
-    <p>{{ item.name }}</p>
+--- FOR LOOPS: ---
+{% for product in products %}
+    <li>{{ product[1] }} - ${{ product[4] }}</li>
 {% endfor %}
-- Loops through items and displays each one
 
---- IF STATEMENTS ---
+--- CONDITIONALS: ---
 {% if user %}
     Welcome, {{ user }}!
 {% else %}
-    Please login
+    <a href="/login">Login</a>
 {% endif %}
 
---- INCLUDE ---
-{% extends "base.html" %}
-- Inherits from another template
+--- FILTERS: ---
+{{ name|upper }}           <!-- uppercase -->
+{{ price|round(2) }}       <!-- round to 2 decimals -->
+{{ text|truncate(50) }}    <!-- truncate to 50 chars -->
+
+================================================================================
+SECTION 2.3: TEMPLATE INHERITANCE
+================================================================================
+
+--- BASE TEMPLATE (layout.html): ---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}Pharmacon{% endblock %}</title>
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>
+
+--- CHILD TEMPLATE: ---
+{% extends "layout.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block styles %}
+<style>
+    /* Custom styles */
+</style>
+{% endblock %}
 
 {% block content %}
-    <!-- Your content here -->
+<h1>Welcome to Admin Dashboard</h1>
 {% endblock %}
-- Defines a replaceable section
+
+---
+
+ADVANCED: TEMPLATE INHERITANCE IN PHARMACON
+=============================================
+
+The PharmaCon system uses Jinja2 template inheritance to share common UI 
+elements across all admin pages. This reduces code duplication and makes 
+maintenance easier.
+
+BASE TEMPLATE: admin_dashboard.html
+------------------------------------
+This is the master template that contains:
+- Complete HTML structure (doctype, head, body)
+- CSS styles (sidebar, content cards, notifications)
+- Sidebar navigation with active state highlighting
+- Notification bell system
+- Common JavaScript functions
+- {% block content %} where child templates insert their content
+
+CHILD TEMPLATES (All extend admin_dashboard.html):
+---------------------------------------------------
+1. add_product.html        - Add new product form
+2. all_products.html       - View all products catalog
+3. admin_activity_logs.html - Admin activity history
+4. admin_cashier_logs.html - Cashier login/logout history
+5. inventory_out_of_stock.html - Low stock alerts
+6. inventory_expiring.html - Products expiring soon
+7. sales_medical.html      - Medical product sales
+8. sales_non_medical.html - Non-medical sales
+9. register_cashier.html  - Add new cashier
+10. delete_cashier.html    - Manage staff (edit/delete)
+11. change_admin_password.html - Security settings
+
+HOW IT WORKS:
+-------------
+Each child template starts with:
+    {% extends 'admin_dashboard.html' %}
+    
+    {% block content %}
+    <!-- Page-specific content here -->
+    {% endblock %}
+
+The base template provides:
+- Sidebar navigation (automatically highlights active menu)
+- Notification bell with dropdown
+- Common CSS styling
+- Responsive layout
+
+NAVIGATION ACTIVE STATES:
+-------------------------
+The base template uses these variables to highlight active menu:
+- active_main: 'dashboard', 'catalog', 'sales', 'inventory', 'management'
+- active_sub: 'monitoring', 'cashier_logs', 'all_products', 'add_product',
+              'sales_dashboard', 'medical_sales', 'non_medical_sales',
+              'out_of_stock', 'expiring_medical', 'register_cashier',
+              'delete_cashier', 'change_admin_password'
+
+These are passed from Flask routes like:
+    return render_template('all_products.html',
+                          active_main='catalog',
+                          active_sub='all_products',
+                          products=products)
 
 ================================================================================
-SECTION 2.3: FLASK URL FORMS
+SECTION 2.5: ADMIN SUB-PAGE TEMPLATES
 ================================================================================
 
---- CODE: ---
-<a href="{{ url_for('admin_login') }}">Login</a>
-<form action="{{ url_for('admin_login') }}" method="POST">
+All admin sub-pages now use template inheritance from admin_dashboard.html.
+Each template only contains the page-specific content within {% block content %}.
 
---- EXPLANATION: ---
+--- admin_dashboard.html (BASE TEMPLATE) ---
+Location: templates/admin_dashboard.html
+Purpose: Master layout template for all admin pages
+Features:
+- Complete HTML structure with CSS styles
+- Sidebar navigation with collapsible submenus
+- Notification bell with dropdown
+- Session management
+- Active menu highlighting
+- {% block content %} for child template content
 
-1. {{ url_for('function_name') }}
-   - Generates URL for a Flask route
-   - Function name, not the URL path!
-   - More secure than hardcoding URLs
+Key CSS Classes:
+- .sidebar: Left navigation panel
+- .content: Main content area
+- .content-card: White background cards
+- .nav-item: Navigation menu items
+- .submenu: Collapsible sub-navigation
+- .notification-bell: Alert notification icon
+- .notification-dropdown: Notification popup
 
-2. action="{{ url_for(...) }}"
-   - Form submits to this URL
+Key JavaScript Functions:
+- toggleMenu(id): Toggle submenu visibility
+- toggleNotifications(): Show/hide notification dropdown
+- loadNotifications(): Fetch notifications from API
+
+--- all_products.html ---
+Extends: admin_dashboard.html
+Route: /all_products
+Active States: active_main='catalog', active_sub='all_products'
+Features:
+- Product table with ID, name, barcode, category, price, stock, expiry
+- Stock badges (OUT, Critical, Low, OK)
+- Delete product functionality
+- Add Product button link
+
+--- admin_activity_logs.html ---
+Extends: admin_dashboard.html
+Route: /admin/activity_logs
+Active States: active_main='dashboard', active_sub='admin_activity_logs'
+Features:
+- Admin action history table
+- Action type badges (Login, Logout, Add, Delete, Update)
+- IP address and timestamp tracking
+
+--- admin_cashier_logs.html ---
+Extends: admin_dashboard.html
+Route: /admin/cashier_logs
+Active States: active_main='dashboard', active_sub='cashier_logs'
+Features:
+- Cashier login/logout history
+- Session duration calculation
+- Online/Offline status badges
+- IP address tracking
+
+--- inventory_out_of_stock.html ---
+Extends: admin_dashboard.html
+Route: /out_of_stock
+Active States: active_main='inventory', active_sub='out_of_stock'
+Features:
+- Products with stock <= threshold (10 units)
+- Critical/Low stock badges
+- Shows: Name, Barcode, Price, Stock, Type
+
+--- inventory_expiring.html ---
+Extends: admin_dashboard.html
+Route: /expiring_medical
+Active States: active_main='inventory', active_sub='expiring_medical'
+Features:
+- Products expiring within 30 days
+- Expired/Expiring Soon badges
+- Shows: Name, Barcode, Price, Expiry Date, Status
+
+--- sales_medical.html ---
+Extends: admin_dashboard.html
+Route: /medical_sales
+Active States: active_main='sales', active_sub='medical_sales'
+Features:
+- Medical product sales history
+- 30-day sales chart (Chart.js)
+- Shows: ID, Receipt #, Total, Date, Status
+
+--- sales_non_medical.html ---
+Extends: admin_dashboard.html
+Route: /non_medical_sales
+Active States: active_main='sales', active_sub='non_medical_sales'
+Features:
+- Non-medical product sales history
+- 30-day sales chart (Chart.js)
+- Green color scheme for chart
+
+--- register_cashier.html ---
+Extends: admin_dashboard.html
+Route: /register_cashier (GET/POST)
+Active States: active_main='management', active_sub='register_cashier'
+Features:
+- Registration form with: Full Name, Username, Password
+- Form validation (required fields)
+- Success/Error flash messages
+
+--- delete_cashier.html ---
+Extends: admin_dashboard.html
+Route: /delete_cashier (GET/POST)
+Active States: active_main='management', active_sub='delete_cashier'
+Features:
+- Staff management table
+- Edit and Delete buttons
+- Edit modal popup for updating cashier details
+- Status management (active/inactive)
+
+--- change_admin_password.html ---
+Extends: admin_dashboard.html
+Route: /change_admin_password (GET/POST)
+Active States: active_main='management', active_sub='change_admin_password'
+Features:
+- Password change form
+- Current password verification
+- New password input
+- Success/Error flash messages
+
+--- add_product.html ---
+Extends: admin_dashboard.html
+Route: /add_product (GET/POST)
+Active States: active_main='catalog', active_sub='add_product'
+Features:
+- Barcode scanner input (auto-focus)
+- Product name with autocomplete
+- Category selection (Medical/Non-Medical)
+- Price, Initial Stock, Expiration Date inputs
+- Low stock warning indicator
+- Duplicate barcode check
+
+--- cashier_dashboard.html ---
+Purpose: Main cashier interface for processing sales
+Features:
+- Product search with autocomplete
+- Shopping cart system
+- Barcode scanner input
+- Real-time total calculation
+- Complete sale button
+- Sales receipt display
+- Uses inline CSS (not extending base)
+
+--- cashier_history.html ---
+Purpose: Cashier's personal sales history
+Features:
+- Personal sales records
+- 30-day sales chart
+- Today's transactions list
+- Uses inline CSS (not extending base)
+
+--- cashier_login.html ---
+Purpose: Cashier authentication
+Features:
+- Login form (username/password)
+- Session creation on success
+- Activity logging
+- Uses inline CSS (not extending base)
+
+--- admin_login.html ---
+Purpose: Admin authentication
+Features:
+- Login form (username/password)
+- Session creation on success
+- Auto-creates default admin if none exists
+- Uses inline CSS (not extending base)
 
 ================================================================================
-SECTION 2.4: FORMS
+SECTION 2.6: FORMS AND INPUT HANDLING
 ================================================================================
 
---- CODE: ---
-<form method="POST">
-    <input type="text" name="username" placeholder="Username" required>
-    <input type="password" name="password" placeholder="Password" required>
-    <button type="submit">Login</button>
+--- HTML FORM: ---
+<form method="POST" action="/add_product">
+    <input type="text" name="product_name" required>
+    <input type="number" name="price" step="0.01" required>
+    <input type="number" name="stock" required>
+    <button type="submit">Add Product</button>
 </form>
 
---- EXPLANATION: ---
-
-1. <form>
-   - Creates an HTML form
-
-2. method="POST"
-   - Sends data securely (not in URL)
-   - GET would put data in URL (less secure)
-
-3. <input type="text">
-   - Text input field
-
-4. <input type="password">
-   - Password field (shows dots instead of characters)
-
-5. name="username"
-   - Name used to retrieve value in Python: request.form.get('username')
-
-6. placeholder="Username"
-   - Gray text shown when field is empty
-
-7. required
-   - Browser validation - field must be filled
-
-8. <button type="submit">
-   - Button that submits the form
-
-================================================================================
-SECTION 2.5: CSS STYLING
-================================================================================
-
---- CODE: ---
-<style>
-    .class-name {
-        property: value;
+--- AJAX FORM (JavaScript): ---
+fetch('/add_product', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify({
+        product_name: name,
+        price: price,
+        stock: stock
+    })
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        alert(data.message);
     }
-    
-    #id-name {
-        property: value;
-    }
-</style>
-
---- COMMON CSS PROPERTIES: ---
-
-Display:
-- display: flex          - Flexible layout
-- display: block         - Takes full width
-- display: inline        - Takes only needed space
-
-Colors:
-- color: white           - Text color
-- background: #ff0000    - Red background
-- opacity: 0.5           - 50% transparent
-
-Spacing:
-- margin: 10px          - Outside spacing
-- padding: 15px          - Inside spacing
-
-Size:
-- width: 100%           - Full width
-- height: 50px          - Fixed height
-
-Text:
-- font-size: 16px       - Text size
-- font-weight: bold      - Bold text
-- text-align: center     - Center text
-
-Borders:
-- border: 1px solid #ccc - Simple border
-- border-radius: 10px     - Rounded corners
+});
 
 ================================================================================
-SECTION 2.6: JAVASCRIPT (Inline)
+SECTION 2.7: JAVASCRIPT INTEGRATION
 ================================================================================
 
---- CODE: ---
-<script>
-    // This runs in the browser
-    
-    // Variable
-    var count = 5;
-    let name = "John";
-    const PI = 3.14;
-    
-    // Function
-    function myFunction() {
-        // code here
-    }
-    
-    // Event listener
-    document.getElementById('btn').addEventListener('click', function() {
-        // code here
-    });
-    
-    // Fetch API (get data from server)
-    fetch('/api/products')
-        .then(response => response.json())
-        .then(data => {
-            console.log(data);
+--- FETCH API (GET REQUEST): ---
+fetch('/api/products')
+    .then(response => response.json())
+    .then(products => {
+        products.forEach(p => {
+            console.log(p.name, p.price);
         });
-</script>
+    });
 
---- EXPLANATION: ---
+--- FETCH API (POST REQUEST): ---
+fetch('/complete_sale', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        items: cartItems,
+        total: totalAmount
+    })
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        console.log('Receipt:', data.receipt_number);
+    }
+});
 
-1. <script>
-   - Contains JavaScript code that runs in the browser
-
-2. var/let/const
-   - var: Function-scoped variable (old way)
-   - let: Block-scoped variable (modern)
-   - const: Constant that cannot change
-
-3. function name() { }
-   - Defines a reusable function
-
-4. document.getElementById('id')
-   - Gets HTML element by its ID
-
-5. .addEventListener('event', function)
-   - Runs function when event happens (click, submit, etc.)
-
-6. fetch(url)
-   - Makes HTTP request to server
-   - Used for AJAX - getting data without page reload
-
-7. .then(response => response.json())
-   - Converts response to JSON
-
-================================================================================
-                    PART 3: DATABASE (MySQL)
-================================================================================
-
-================================================================================
-SECTION 3.1: DATABASE TABLES
-================================================================================
-
---- CODE: ---
-CREATE TABLE admins (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
---- EXPLANATION: ---
-
-1. CREATE TABLE table_name
-   - Creates a new table in the database
-
-2. column_name data_type constraints
-   - id INT AUTO_INCREMENT PRIMARY KEY
-     - id: Column name
-     - INT: Integer (whole number)
-     - AUTO_INCREMENT: Automatically numbers rows (1, 2, 3...)
-     - PRIMARY KEY: Unique identifier (cannot be duplicate)
-
-3. VARCHAR(100)
-   - Variable-length text, max 100 characters
-
-4. NOT NULL
-   - Column must have a value (cannot be empty)
-
-5. UNIQUE
-   - No duplicate values allowed (like username)
-
-6. DEFAULT CURRENT_TIMESTAMP
-   - If no value given, use current date/time
-
-7. DECIMAL(10,2)
-   - Decimal number with 10 total digits, 2 after decimal
-   - Example: 12345678.90
+--- CHART.JS EXAMPLE: ---
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels|tojson }},
+        datasets: [{
+            label: 'Daily Sales',
+            data: {{ chart_values|tojson }},
+            borderColor: 'blue'
+        }]
+    }
+});
 
 ================================================================================
-SECTION 3.2: TABLE RELATIONSHIPS (FOREIGN KEYS)
-================================================================================
-
---- CODE: ---
-FOREIGN KEY (cashier_id) REFERENCES cashiers(id) ON DELETE CASCADE
-
---- EXPLANATION: ---
-
-1. FOREIGN KEY
-   - Links this table to another table
-   - Ensures data integrity
-
-2. REFERENCES cashiers(id)
-   - References the id column in cashiers table
-
-3. ON DELETE CASCADE
-   - If parent record deleted, delete related records too
-   - Example: If cashier deleted, their activity records deleted too
-
-================================================================================
-SECTION 3.3: COMMON SQL DATA TYPES
-================================================================================
-
-- INT             - Whole number (-2 billion to 2 billion)
-- VARCHAR(n)      - Text, max n characters
-- TEXT            - Long text
-- DATE            - Date (YYYY-MM-DD)
-- DATETIME        - Date and time
-- TIMESTAMP       - Unix timestamp
-- DECIMAL(p,s)    - Precise decimal number
-- BOOLEAN         - True/False
-
-================================================================================
-                    PART 4: QUICK REFERENCE GUIDE
+                     PART 3: DATABASE SCHEMA (database.sql)
 ================================================================================
 
 ================================================================================
-COMMON PATTERNS IN THIS SYSTEM
+SECTION 3.1: TABLES OVERVIEW
 ================================================================================
 
---- ADMIN LOGIN PATTERN ---
-1. Check if already logged in (session check)
-2. If POST: Get form data
-3. Validate input (not empty)
-4. Query database for user
-5. Check password hash
-6. Set session variables
-7. Redirect to dashboard
+1. admins
+   - Stores admin user accounts
+   - Fields: id, username, password (hashed), full_name, created_at
 
---- ADD PRODUCT PATTERN ---
-1. Check if POST
-2. Get form data
-3. Check if product exists (same name, barcode, expiry)
-4. If exists: UPDATE stock
-5. If new: INSERT new product
-6. Log stock movement
-7. Commit to database
-8. Flash success message
-9. Redirect to same page
+2. cashiers
+   - Stores cashier accounts
+   - Fields: id, full_name, username, password (hashed), status, created_at
 
---- COMPLETE SALE PATTERN ---
-1. Get items from request (JSON)
-2. Generate receipt number
-3. Calculate total
-4. INSERT into sales table
-5. For each item:
-   - INSERT into sale_items
-   - UPDATE product stock (decrease)
-   - INSERT stock_movement
-6. Commit all changes
-7. Return receipt data as JSON
+3. cashier_activity
+   - Tracks cashier login/logout times
+   - Fields: id, cashier_id, login_time, logout_time, ip_address
 
---- SEARCH PRODUCT PATTERN ---
-1. Get search query from URL
-2. SQL LIKE query: WHERE name LIKE %query%
-3. Return results as JSON
+4. admin_activity
+   - Tracks admin actions (login, add product, delete, etc.)
+   - Fields: id, admin_id, action, ip_address, details, activity_time
 
-================================================================================
-ROUTE SUMMARY
-================================================================================
+5. categories
+   - Product categories (Medical, Non-Medical)
+   - Fields: id, category_name, description
 
-/                           - Index (redirects to admin_login)
-/admin_login               - Admin login page
-/admin                     - Admin dashboard (requires admin)
-/admin/cashier_logs        - View all cashier activity logs
-/all_products             - View all products catalog
-/add_product               - Add new product (requires admin)
-/delete_product/<id>       - Delete product (requires admin)
-/medical_sales             - View medical sales
-/non_medical_sales         - View non-medical sales
-/sales_dashboard           - Sales overview with charts
-/out_of_stock              - Products with low stock
-/expiring_medical          - Products expiring soon
-/register_cashier          - Register new cashier
-/delete_cashier            - Delete/edit cashier
-/change_admin_password     - Change admin password
-/cashier_login             - Cashier login page
-/cashier                   - Cashier dashboard (requires cashier)
-/cashier_history          - Cashier sales history
-/search_product           - Search products (API)
-/complete_sale            - Complete a sale (API)
-/logout                   - Logout user
-/api/notifications        - Get low stock/expiring alerts (API)
+6. products
+   - Product inventory
+   - Fields: id, product_name, barcode, category_id, type, price, stock, 
+            expiration_date, created_at
+
+7. stock_movements
+   - Tracks all stock changes (IN/OUT)
+   - Fields: id, product_id, movement_type, quantity, reason, movement_date
+
+8. sales
+   - Completed sales transactions
+   - Fields: id, receipt_number, cashier_id, total_amount, sale_status,
+            product_type, sale_date
+
+9. sale_items
+   - Individual items in each sale
+   - Fields: id, sale_id, product_id, quantity, price
 
 ================================================================================
-SECURITY NOTES
+SECTION 3.2: TABLE RELATIONSHIPS
 ================================================================================
 
-1. Password Hashing
-   - NEVER store plain text passwords
-   - Always use generate_password_hash()
+admins → admin_activity (one-to-many)
+  - One admin can have many activity records
 
-2. SQL Injection Prevention
-   - Use parameterized queries: WHERE name = %s
-   - Never concatenate user input into SQL strings!
+cashiers → cashier_activity (one-to-many)
+  - One cashier can have many login sessions
 
-3. Session Security
-   - Use secret_key
-   - Set SESSION_COOKIE_HTTPONLY = True
+cashiers → sales (one-to-many)
+  - One cashier can make many sales
 
-4. Input Validation
-   - Always clean and validate user input
-   - Use clean_input() function
+products → stock_movements (one-to-many)
+  - One product can have many stock movements
 
-5. Access Control
-   - Use @admin_required and @cashier_required decorators
-   - Check session on every protected route
+sales → sale_items (one-to-many)
+  - One sale can have many items
 
-================================================================================
-FILE STRUCTURE
-================================================================================
+products → sale_items (one-to-many)
+  - One product can appear in many sale items
 
-pharmacon/
-├── app.py                 - Main Python application (Flask)
-├── database.sql           - Database schema and initial data
-├── LOCAL_NETWORK_SETUP.txt - Instructions for multi-computer setup
-└── templates/             - HTML files
-    ├── admin_login.html
-    ├── admin_dashboard.html
-    ├── cashier_login.html
-    ├── cashier_dashboard.html
-    ├── add_product.html
-    ├── all_products.html
-    ├── sales_medical.html
-    ├── sales_non_medical.html
-    ├── sales_dashboard.html
-    ├── inventory_out_of_stock.html
-    ├── inventory_expiring.html
-    ├── register_cashier.html
-    ├── delete_cashier.html
-    ├── change_admin_password.html
-    ├── cashier_history.html
-    └── admin_cashier_logs.html
+categories → products (one-to-many)
+  - One category can have many products
 
 ================================================================================
-                           END OF DOCUMENTATION
+SECTION 3.3: DEFAULT DATA
 ================================================================================
 
-This documentation covers all the major concepts in your PharmaCon system.
-For more details on any specific feature, refer to the code comments in
-app.py or the specific HTML template files.
+Default Admin:
+- Username: admin
+- Password: admin123
 
-Happy learning!
+Default Categories:
+- Medical (Medical products and medicines)
+- Non-Medical (Supplies and hygiene products)
+
+================================================================================
+                     PART 4: ROUTES REFERENCE
+================================================================================
+
+================================================================================
+SECTION 4.1: ADMIN ROUTES
+================================================================================
+
+PUBLIC:
+/ or /admin_login
+    - Redirects to admin login
+    - GET: Shows login form
+    - POST: Processes login credentials
+    - Creates default admin if none exists (username: admin, password: admin123)
+
+PROTECTED (requires @admin_required):
+/admin or /admin_dashboard
+    - Main admin dashboard
+    - Shows: cashiers list, active cashiers, activity logs, low stock count, expiring count
+
+/admin/cashier_logs
+    - View all cashier login/logout activity
+    - Shows: cashier activity logs with IP addresses
+
+/admin/activity_logs
+    - View all admin actions
+    - Shows: admin activity (login, add product, delete, etc.)
+
+/all_products
+    - View all products in catalog
+    - Shows: complete product list
+
+/add_product (GET/POST)
+    - Add new product to inventory
+    - POST: Validates and inserts product
+    - Checks for duplicate barcode
+    - Updates stock if same product+barcode+expiry exists
+
+/delete_product/<id> (POST)
+    - Delete a product
+    - Logs action to admin_activity
+
+/medical_sales
+    - View medical product sales
+    - Shows: sales list + chart (last 30 days)
+
+/non_medical_sales
+    - View non-medical product sales
+    - Shows: sales list + chart (last 30 days)
+
+/sales_dashboard
+    - Comprehensive sales statistics
+    - Shows: daily/weekly/monthly/yearly/overall sales
+    - Shows: popular products chart
+    - Shows: 30-day sales chart
+
+/out_of_stock
+    - View products with low stock
+    - Shows: products where stock <= 10
+
+/expiring_medical
+    - View products expiring soon
+    - Shows: products expiring within 30 days
+
+/register_cashier (GET/POST)
+    - Register new cashier
+    - POST: Creates new cashier account
+
+/delete_cashier (GET/POST)
+    - View and delete cashiers
+    - POST: Deletes selected cashier
+
+/edit_cashier (POST)
+    - Update cashier details
+    - Can update: full_name, username, status, password
+
+/change_admin_password (GET/POST)
+    - Change admin password
+    - POST: Validates old password, updates to new
+
+/admin_logout
+    - Logs out admin only
+    - Preserves cashier session if active
+
+/logout
+    - Legacy logout
+    - Determines role and logs out appropriately
+
+================================================================================
+SECTION 4.2: CASHIER ROUTES
+================================================================================
+
+PUBLIC:
+/cashier_login (GET/POST)
+    - Cashier login page
+    - POST: Validates credentials, creates session, logs activity
+
+PROTECTED (requires @cashier_required):
+/cashier or /cashier_dashboard
+    - Cashier main dashboard
+    - Shows: today's sales total, recent sales
+
+/cashier_history
+    - View sales history with charts
+    - Shows: 30-day chart, today's transactions
+
+/search_product?q=<query>
+    - Search products by name or barcode
+    - Returns: JSON list of matching products
+
+/api/products
+    - Get all available products
+    - Returns: JSON list of all products with stock > 0
+
+/api/search_by_name?q=<query>
+    - Search products by name (for autocomplete)
+    - Returns: JSON list of matching products
+
+/get_product/<barcode>
+    - Get product by barcode
+    - Returns: JSON product details
+
+/complete_sale (POST)
+    - Process a sale transaction
+    - Input: JSON with items array
+    - Creates: sale record, sale_items records
+    - Updates: product stock, stock_movements
+    - Returns: receipt number, total, items
+
+/cashier_logout
+    - Logs out cashier
+    - Logs logout time in cashier_activity
+
+================================================================================
+SECTION 4.3: API ROUTES
+================================================================================
+
+/api/notifications (GET, admin only)
+    - Returns: JSON with low stock and expiring products
+    - Used for: dashboard notifications/alerts
+
+/active_cashiers (GET, admin only)
+    - Returns: JSON list of all cashiers with online status
+
+================================================================================
+SECTION 4.4: UTILITY ROUTES
+================================================================================
+
+/setup_remote_db (GET)
+    - Grants remote MySQL access
+    - Run once on main computer for network setup
+
+/index
+    - Redirects to admin_login
+
+================================================================================
+                     QUICK REFERENCE
+================================================================================
+
+DEFAULT CREDENTIALS:
+- Admin: username=admin, password=admin123
+
+DATABASE:
+- Name: pharmacon
+- Host: localhost
+- User: root
+- Password: (empty)
+
+SESSION TIMEOUT:
+- 24 hours (86400 seconds)
+
+LOW STOCK THRESHOLD:
+- 10 units
+
+RECEIPT FORMAT:
+- REC-YYYYMMDD-XXXX (e.g., REC-20260322-1234)
+
+IP TRACKING:
+- Uses X-Forwarded-For header if behind proxy
+- Falls back to remote_addr
+
+================================================================================
+                     END OF DOCUMENTATION
+================================================================================

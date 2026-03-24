@@ -1,173 +1,70 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Cashier Logs - PharmaCon Admin</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        :root { --bg-dark: #1e1e2f; --bg-accent: #2c3e50; --glass: rgba(255,255,255,0.05); --glass-border: rgba(255,255,255,0.1); --orange: #fb923c; --red: #dc2626; --green: #4ade80; --text-muted: #a0aec0; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: linear-gradient(135deg, var(--bg-dark), var(--bg-accent)); color: white; }
-        .sidebar { width: 260px; background: rgba(15,23,42,0.7); backdrop-filter: blur(15px); display: flex; flex-direction: column; padding-top: 25px; box-shadow: 5px 0 20px rgba(0,0,0,0.4); border-right: 1px solid var(--glass-border); }
-        .sidebar h2 { text-align: center; margin-bottom: 30px; letter-spacing: 2px; font-size: 22px; font-weight: 800; }
-        .sidebar h2 span { color: var(--orange); }
-        .nav-item { padding: 14px 25px; cursor: pointer; font-weight: 600; color: var(--text-muted); transition: all 0.3s ease; display: flex; align-items: center; border-right: 4px solid transparent; text-decoration: none; }
-        .nav-item:hover { background: rgba(255,255,255,0.08); color: white; padding-left: 35px; }
-        .nav-item.active { background: rgba(251,146,60,0.15); color: var(--orange); border-right: 4px solid var(--orange); }
-        .submenu { display: none; flex-direction: column; background: rgba(0,0,0,0.3); padding: 5px 0; }
-        .submenu a { color: #cbd5e1; text-decoration: none; padding: 10px 25px 10px 50px; display: block; font-size: 14px; transition: 0.2s; }
-        .submenu a:hover { background: rgba(255,255,255,0.05); color: white; }
-        .submenu a.active { color: white; font-weight: bold; background: rgba(255,255,255,0.03); }
-        .content { flex: 1; padding: 40px; overflow-y: auto; }
-        .content-card { background: white; color: #1e1e2f; padding: 30px; border-radius: 15px; box-shadow: 0px 10px 30px rgba(0,0,0,0.4); }
-        .logout { margin-top: auto; color: var(--red); border-top: 1px solid var(--glass-border); }
-        .logout:hover { background: rgba(255,77,77,0.1); padding-left: 35px; }
-        
-        .notification-container { position: fixed; top: 8px; right: 8px; z-index: 1000; }
-        .notification-bell { position: relative; cursor: pointer; padding: 5px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .notification-bell svg { width: 24px; height: 24px; fill: white; }
-        .notification-badge { position: absolute; top: -5px; right: -5px; background: var(--red); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
-        .notification-dropdown { display: none; position: absolute; top: 50px; right: 0; width: 350px; max-height: 400px; overflow-y: auto; background: #1e293b; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
-        .notification-dropdown.show { display: block; }
-        .notification-header { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: bold; color: white; }
-        .notification-section { padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .notification-section h4 { margin: 0 0 10px 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; }
-        .notification-item { padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
-        .notification-item:hover { background: rgba(255,255,255,0.1); }
-        .notification-item.low-stock { border-left: 3px solid var(--red); }
-        .notification-item.expiring { border-left: 3px solid var(--orange); }
-        .notification-item-name { font-weight: 600; color: white; font-size: 14px; }
-        .notification-item-detail { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; font-weight: 600; color: #1e1e2f; }
-        .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-        .status-badge.online { background: #dcfce7; color: #16a34a; }
-        .status-badge.offline { background: #f1f5f9; color: #64748b; }
-        .back-link { display: inline-block; margin-bottom: 20px; color: var(--orange); text-decoration: none; font-weight: 600; }
-    </style>
-</head>
-<body>
+{% extends 'admin_dashboard.html' %}
 
-<div class="notification-container">
-    <div class="notification-bell" onclick="toggleNotifications()">
-        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
-        {% if low_stock_count + expiring_count > 0 %}
-        <span class="notification-badge">{{ low_stock_count + expiring_count }}</span>
-        {% endif %}
-    </div>
-    <div class="notification-dropdown" id="notificationDropdown">
-        <div class="notification-header">
-            <span>Notifications</span>
-            <div style="display:flex;gap:5px;margin-top:5px;">
-                <a href="/out_of_stock" style="font-size:10px;padding:2px 6px;background:#fee2e2;color:#dc2626;border-radius:3px;text-decoration:none;">Low Stock</a>
-                <a href="/expiring_medical" style="font-size:10px;padding:2px 6px;background:#fef3c7;color:#d97706;border-radius:3px;text-decoration:none;">Expiring</a>
-            </div>
-        </div>
-        <div id="notificationList"><div style="padding:30px;text-align:center;color:#94a3b8">Loading...</div></div>
-    </div>
-</div>
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<div class="sidebar">
-    <a href="{{ url_for('admin_dashboard') }}" style="text-decoration:none;color:white;"><h2>PHARMA<span>CON</span></h2></a>
-    <div class="nav-item {% if active_main=='dashboard' or active_main=='admin' %}active{% endif %}" onclick="toggleMenu('dash-menu')">Dashboard</div>
-    <div class="submenu" id="dash-menu" style="display:flex;">
-        <a href="{{ url_for('admin_dashboard') }}">Activity Monitor</a>
-        <a href="{{ url_for('cashier_logs') }}" class="active">Cashier Logs</a>
-    </div>
-    <div class="nav-item {% if active_main=='catalog' %}active{% endif %}" onclick="toggleMenu('catalog')">Catalog</div>
-    <div class="submenu" id="catalog" style="display:{% if active_main=='catalog' %}flex{% else %}none{% endif%}">
-        <a href="{{ url_for('all_products') }}">All Products</a>
-        <a href="{{ url_for('add_product') }}">Add Product</a>
-    </div>
-    <div class="nav-item {% if active_main=='sales' %}active{% endif %}" onclick="toggleMenu('sales')">Sales Reports</div>
-    <div class="submenu" id="sales" style="display:{% if active_main=='sales' %}flex{% else %}none{% endif%}">
-        <a href="{{ url_for('sales_dashboard') }}" class="{% if active_sub=='sales_dashboard' %}active{% endif %}">Sales Dashboard</a>
-        <a href="{{ url_for('medical_sales') }}" class="active">Medical Sales</a>
-        <a href="{{ url_for('non_medical_sales') }}">Non-Medical Sales</a>
-    </div>
-    <div class="nav-item {% if active_main=='inventory' %}active{% endif %}" onclick="toggleMenu('inventory')">Inventory</div>
-    <div class="submenu" id="inventory" style="display:{% if active_main=='inventory' %}flex{% else %}none{% endif%}">
-        <a href="{{ url_for('out_of_stock') }}">Low Stock Alerts</a>
-        <a href="{{ url_for('expiring_medical') }}">Expiring Alerts</a>
-    </div>
-    <div class="nav-item {% if active_main=='management' %}active{% endif %}" onclick="toggleMenu('management')">Management</div>
-    <div class="submenu" id="management" style="display:{% if active_main=='management' %}flex{% else %}none{% endif%}">
-        <a href="{{ url_for('register_cashier') }}">Register Cashier</a>
-        <a href="{{ url_for('delete_cashier') }}">Manage Staff</a>
-        <a href="{{ url_for('change_admin_password') }}">Security Settings</a>
-    </div>
-    <a href="/admin_logout" class="nav-item logout">Logout</a>
-</div>
-
-<div class="content">
-    <div class="content-card">
-        <a href="{{ url_for('admin_dashboard') }}" class="back-link">← Back to Dashboard</a>
-        <h1 style="margin:0 0 20px 0;">Cashier Activity Logs</h1>
-        <p style="color:#666;">Complete history of cashier login and logout times.</p>
-        
-        {% if activity_logs %}
-        <table>
-            <thead><tr><th>Cashier</th><th>Login Time</th><th>Logout Time</th><th>IP Address</th><th>Duration</th><th>Status</th></tr></thead>
-            <tbody>
-            {% for log in activity_logs %}
-            <tr>
-                <td><strong>{{ log[0] }}</strong> ({{ log[1] }})</td>
-                <td>{{ log[2].strftime('%Y-%m-%d %H:%M') if log[2] else '-' }}</td>
-                <td>{{ log[3].strftime('%Y-%m-%d %H:%M') if log[3] else 'Still Online' }}</td>
-                <td>{{ log[4] if log[4] else 'N/A' }}</td>
-                <td>
-                    {% if log[2] and log[3] %}
-                        {% set duration = log[3] - log[2] %}
-                        {% if duration.days > 0 %}
-                            {{ duration.days }}d {{ duration.seconds // 3600 }}h
-                        {% elif duration.seconds // 3600 > 0 %}
-                            {{ duration.seconds // 3600 }}h {{ (duration.seconds % 3600) // 60 }}m
-                        {% else %}
-                            {{ duration.seconds // 60 }}m
-                        {% endif %}
-                    {% elif log[2] %}
-                        {% set now = datetime.now() %}
-                        {% set duration = now - log[2] %}
-                        {% if duration.days > 0 %}
-                            {{ duration.days }}d {{ duration.seconds // 3600 }}h
-                        {% elif duration.seconds // 3600 > 0 %}
-                            {{ duration.seconds // 3600 }}h {{ (duration.seconds % 3600) // 60 }}m
-                        {% else %}
-                            {{ duration.seconds // 60 }}m
-                        {% endif %}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                <td>
-                    {% if log[3] %}
-                    <span class="status-badge offline">Offline</span>
-                    {% else %}
-                    <span class="status-badge online">Online</span>
-                    {% endif %}
-                </td>
+<div class="content-card" style="padding: 30px;">
+    <a href="{{ url_for('admin_dashboard') }}" style="display: inline-block; margin-bottom: 20px; color: var(--orange); text-decoration: none; font-weight: 600;">← Back to Dashboard</a>
+    
+    <h1 style="margin: 0 0 10px 0; color: #1e1e2f;">Cashier Activity Logs</h1>
+    <p style="color: #666; margin-bottom: 20px;">Complete history of cashier login and logout times.</p>
+    
+    {% if activity_logs %}
+    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <thead>
+            <tr style="border-bottom: 2px solid #eee;">
+                <th style="text-align: left; padding: 12px; color: #666;">Cashier</th>
+                <th style="text-align: left; padding: 12px; color: #666;">Login Time</th>
+                <th style="text-align: left; padding: 12px; color: #666;">Logout Time</th>
+                <th style="text-align: left; padding: 12px; color: #666;">IP Address</th>
+                <th style="text-align: left; padding: 12px; color: #666;">Duration</th>
+                <th style="text-align: left; padding: 12px; color: #666;">Status</th>
             </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p style="color:#666;margin-top:20px;">No activity logs found.</p>
-        {% endif %}
-    </div>
+        </thead>
+        <tbody>
+        {% for log in activity_logs %}
+        <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 12px;"><strong>{{ log[0] }}</strong> ({{ log[1] }})</td>
+            <td style="padding: 12px;">{{ log[2].strftime('%Y-%m-%d %H:%M') if log[2] else '-' }}</td>
+            <td style="padding: 12px;">{{ log[3].strftime('%Y-%m-%d %H:%M') if log[3] else 'Still Online' }}</td>
+            <td style="padding: 12px;">{{ log[4] if log[4] else 'N/A' }}</td>
+            <td style="padding: 12px;">
+                {% if log[2] and log[3] %}
+                    {% set duration = log[3] - log[2] %}
+                    {% if duration.days > 0 %}
+                        {{ duration.days }}d {{ duration.seconds // 3600 }}h
+                    {% elif duration.seconds // 3600 > 0 %}
+                        {{ duration.seconds // 3600 }}h {{ (duration.seconds % 3600) // 60 }}m
+                    {% else %}
+                        {{ duration.seconds // 60 }}m
+                    {% endif %}
+                {% elif log[2] %}
+                    {% set now = datetime.now() %}
+                    {% set duration = now - log[2] %}
+                    {% if duration.days > 0 %}
+                        {{ duration.days }}d {{ duration.seconds // 3600 }}h
+                    {% elif duration.seconds // 3600 > 0 %}
+                        {{ duration.seconds // 3600 }}h {{ (duration.seconds % 3600) // 60 }}m
+                    {% else %}
+                        {{ duration.seconds // 60 }}m
+                    {% endif %}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td style="padding: 12px;">
+                {% if log[3] %}
+                <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #f1f5f9; color: #64748b;">Offline</span>
+                {% else %}
+                <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #dcfce7; color: #16a34a;">Online</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #666; margin-top: 20px;">No activity logs found.</p>
+    {% endif %}
 </div>
-
-<script>
-function toggleMenu(id) { document.getElementById(id).style.display = document.getElementById(id).style.display === "flex" ? "none" : "flex"; }
-function toggleNotifications() { const d = document.getElementById('notificationDropdown'); d.classList.toggle('show'); if(d.classList.contains('show')) loadNotifications(); }
-function loadNotifications() {
-    fetch('/api/notifications').then(r=>r.json()).then(data => {
-        let html = '';
-        if(data.low_stock.length) { html += '<div class="notification-section"><h4>Low Stock</h4>'; data.low_stock.forEach(i=>{html+=`<div class="notification-item low-stock" onclick="window.location.href='/out_of_stock'"><div class="notification-item-name">${i.name}</div><div class="notification-item-detail">Stock: ${i.stock}</div></div>`;}); html+='</div>'; }
-        if(data.expiring.length) { html += '<div class="notification-section"><h4>Expiring</h4>'; data.expiring.forEach(i=>{html+=`<div class="notification-item expiring" onclick="window.location.href='/expiring_medical'"><div class="notification-item-name">${i.name}</div><div class="notification-item-detail">Expires: ${i.expiry}</div></div>`;}); html+='</div>'; }
-        document.getElementById('notificationList').innerHTML = html || '<div style="padding:30px;text-align:center;color:#94a3b8">No notifications</div>';
-    });
-}
-document.addEventListener('click',e=>{if(!document.querySelector('.notification-container').contains(e.target))document.getElementById('notificationDropdown').classList.remove('show');});
-</script>
-</body>
-</html>
+{% endblock %}
