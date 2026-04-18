@@ -1,0 +1,56 @@
+PHARMACON UPDATE LOG
+=====================
+Date: April 18, 2026
+Commit: b79ac7c
+
+CHANGES MADE:
+=============
+
+1. SEARCH BARS ADDED
+   - all_products.html: Search by name, barcode, category
+   - inventory_out_of_stock.html: Search by name or barcode
+   - inventory_expiring.html: Search by name or barcode
+   - sales_medical.html: Search by receipt number or product name
+   - sales_non_medical.html: Search by receipt number or product name
+   - cashier_history.html: Search by receipt number
+   - Each search filters the table in real-time as you type
+
+2. MOBILE NAVIGATION FIX
+   - admin_dashboard.html:
+     * Added menu toggle button for screens ≤900px
+     * Added sidebar overlay when menu is open
+     * Click hamburger icon or overlay to toggle sidebar
+     * All 12 templates extending admin_dashboard inherit this behavior
+   - cashier_dashboard.html:
+     * Added nav toggle button for screens ≤900px
+     * Added navigation overlay when open
+     * Click hamburger icon or overlay to toggle nav
+
+3. OVERFLOW FIXES
+   - Added overflow-x: hidden to body, content, content-card in admin_dashboard
+   - Added overflow controls to dashboard-grid in cashier_dashboard
+   - Tables scroll horizontally on mobile
+
+4. CHARTS UPDATED TO PIE/BAR
+   - sales_dashboard.html: Doughnut chart showing Medical vs Non-Medical sales comparison with percentages
+   - sales_medical.html: Bar chart showing daily medical sales by date
+   - sales_non_medical.html: Bar chart showing daily non-medical sales by date
+   - Improved readability with better colors, tooltips, and formatting
+
+FILES MODIFIED:
+==============
+- app.py
+- templates/admin_dashboard.html
+- templates/all_products.html
+- templates/cashier_dashboard.html
+- templates/cashier_history.html
+- templates/inventory_expiring.html
+- templates/inventory_out_of_stock.html
+- templates/sales_dashboard.html
+- templates/sales_medical.html
+- templates/sales_non_medical.html
+
+NEW FILES CREATED:
+=================
+- HARDWARE_SETUP_GUIDE.txt
+- FINAL_REQUIREMENT_65_PERCENT.txt
