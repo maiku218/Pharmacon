@@ -1,0 +1,255 @@
+================================================================================
+CLOUD BACKUP GUIDE FOR PHARMACON SYSTEM
+================================================================================
+Date: April 18, 2026
+System: Pharmacon (Flask + MySQL on XAMPP)
+Goal: Backup offline system to cloud for online backup
+
+================================================================================
+OPTIONS OVERVIEW
+================================================================================
+
+Option A: Google Drive - Manual Backup (Easiest, Free)
+Option B: GitHub - Code Backup (Recommended for code)
+Option C: Cloud SQL / MySQL Cloud - Database Backup (Professional)
+Option D: Auto-backup with Google Drive (Semi-automatic)
+
+================================================================================
+OPTION A: GOOGLE DRIVE MANUAL BACKUP (EASIEST)
+================================================================================
+
+STEP 1: Install Google Drive Desktop
+--------------------------------------
+1. Go to: https://drive.google.com
+2. Download "Google Drive for Desktop"
+3. Install and sign in with your Google account
+
+STEP 2: Create Backup Folder
+-------------------------------
+1. Create a folder named "Pharmacon_Backup" on your computer
+2. Move this folder to your Google Drive sync folder
+   (Usually: C:\Users\YourName\Google Drive)
+
+STEP 3: Backup Your Files
+---------------------------
+Manually copy these files to your backup folder:
+
+1. Database Backup:
+   - Open phpMyAdmin (http://localhost/phpmyadmin)
+   - Select "pharmacon" database
+   - Click "Export" tab
+   - Click "Go" button
+   - Save as "pharmacon_backup_[DATE].sql"
+
+2. Project Files:
+   - Copy entire C:\xampp\htdocs\pharmacon folder
+   - Paste to Google Drive\Pharmacon_Backup\
+
+STEP 4: Sync to Cloud
+----------------------
+Google Drive will automatically sync to online cloud.
+Your files are now backed up!
+
+Time needed: 5-10 minutes per backup
+
+================================================================================
+OPTION B: GITHUB BACKUP (RECOMMENDED FOR CODE)
+================================================================================
+
+STEP 1: Create GitHub Repository
+---------------------------------
+1. Go to: https://github.com
+2. Click "+" then "New repository"
+3. Name: Pharmacon
+4. Set as Public or Private
+5. Click "Create repository"
+
+STEP 2: Install Git (if not installed)
+---------------------------------------
+Download: https://git-scm.com
+Install with default settings
+
+STEP 3: Push Code to GitHub
+-----------------------------
+Open Command Prompt and run:
+
+  cd C:\xampp\htdocs\pharmacon
+
+  git init
+  
+  git add -A
+  
+  git commit -m "Pharmacon backup"
+
+  git branch -M main
+  
+  git remote add origin https://github.com/YOURUSERNAME/Pharmacon.git
+  
+  git push -u origin main
+
+STEP 4: Update Backup Later
+----------------------------
+Whenever you make changes:
+
+  cd C:\xampp\htdocs\pharmacon
+  
+  git add -A
+  
+  git commit -m "Update: [describe changes]"
+  
+  git push origin main
+
+Time needed: 15-30 minutes initial setup
+
+================================================================================
+OPTION C: CLOUD DATABASE BACKUP (PROFESSIONAL)
+================================================================================
+
+Using Free Cloud MySQL Services:
+
+A. PlanetScale (Free Tier)
+---------------------------
+1. Go to: https://planetscale.com
+2. Sign up for free account
+3. Create new database
+4. Get connection string
+5. Export your local MySQL and import to PlanetScale
+
+B. AlwaysData (Free)
+---------------------
+1. Go to: https://alwaysdata.com
+2. Create free account
+3. Create MySQL database
+4. Upload your database backup
+
+C. ClearDB (Heroku Free)
+-------------------------
+1. Go to: https://cleardb.com
+2. Create free Heroku addon
+3. Get connection details
+
+STEP: Export Local Database
+-----------------------------
+1. Open Command Prompt
+2. Navigate to XAMPP MySQL bin:
+   cd C:\xampp\mysql\bin
+
+3. Export database:
+   mysqldump -u root -p pharmacon > backup.sql
+
+4. Enter password (usually empty for XAMPP)
+
+STEP: Import to Cloud
+----------------------
+1. Open cloud database dashboard
+2. Find "Import" or "SQL Query" section
+3. Run your backup.sql file
+
+================================================================================
+OPTION D: AUTO-BACKUP WITH GOOGLE DRIVE (SEMI-AUTO)
+================================================================================
+
+STEP 1: Create Backup Script
+------------------------------
+Create a file: C:\xampp\htdocs\pharmacon\backup.bat
+
+Copy this code:
+---------------
+@echo off
+set BACKUP_DATE=%date:~-4%%date:~3,2%%date:~0,2%
+set BACKUP_FOLDER=C:\Users\YOURNAME\Google Drive\Pharmacon_Backup
+
+echo Starting Pharmacon Backup...
+
+echo 1. Backing up database...
+cd C:\xampp\mysql\bin
+mysqldump -u root -p pharmacon > "%BACKUP_FOLDER%\db_%BACKUP_DATE%.sql"
+
+echo 2. Copying project files...
+xcopy "C:\xampp\htdocs\pharmacon\*" "%BACKUP_FOLDER%\code\" /E /I /Y
+
+echo Backup Complete!
+pause
+
+STEP 2: Customize Script
+-------------------------
+Replace "YOURNAME" with your Windows username
+
+STEP 3: Run Backup
+--------------------
+Double-click backup.bat to create backup
+Files will sync automatically to Google Drive
+
+Run this daily or weekly for regular backups
+
+================================================================================
+RECOMMENDED BACKUP SCHEDULE
+================================================================================
+
+Daily:
+- Database export (run backup.bat)
+
+Weekly:
+- Full project backup to GitHub
+
+Monthly:
+- Verify Google Drive has all files
+- Check GitHub commits are up to date
+
+================================================================================
+WHAT TO BACKUP
+================================================================================
+
+1. DATABASE (Most Important!)
+   - Location: C:\xampp\mysql\data\pharmacon\
+   - Export via phpMyAdmin as SQL file
+   
+2. PROJECT CODE
+   - Location: C:\xampp\htdocs\pharmacon\
+   - All .py, .html, .txt files
+   
+3. IMAGES (if any)
+   - Check for uploaded product images
+   
+4. XAMPP CONFIG (optional)
+   - php.ini, httpd.conf (for system restore)
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Q: Git push asks for username/password every time?
+A: Use Git Credential Manager or create SSH key
+
+Q: Database too large to upload?
+A: Use 7-Zip to compress before uploading
+
+Q: Google Drive not syncing?
+A: Check Google Drive icon in system tray
+
+Q: MySQL export fails?
+A: Make sure XAMPP MySQL service is running
+
+================================================================================
+QUICK START (Recommended)
+================================================================================
+
+For immediate backup:
+
+1. Create folder: C:\Users\YOURNAME\Google Drive\Pharmacon_Backup
+
+2. Export database:
+   - Go to http://localhost/phpmyadmin
+   - Select pharmacon database
+   - Click Export > Go
+   - Save to backup folder
+
+3. Copy project folder:
+   - Copy C:\xampp\htdocs\pharmacon
+   - Paste to backup folder
+
+4. Done! Google Drive syncs automatically
+
+Do this weekly for safety!
+
+================================================================================
