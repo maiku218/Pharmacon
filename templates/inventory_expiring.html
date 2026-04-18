@@ -26,6 +26,7 @@
                 <th style="text-align: left; padding: 12px; color: #666;">Expiration Date</th>
                 <th style="text-align: left; padding: 12px; color: #666;">Status</th>
                 <th style="text-align: left; padding: 12px; color: #666;">Type</th>
+                <th style="text-align: left; padding: 12px; color: #666;">Action</th>
             </tr>
         </thead>
         <tbody>
@@ -43,6 +44,11 @@
                 {% endif %}
             </td>
             <td style="padding: 12px;">{{ p[4] }}</td>
+            <td style="padding: 12px;">
+                <form method="POST" action="{{ url_for('delete_product', id=p[0]) }}" style="display: inline;" onsubmit="return confirm('Delete this product?');">
+                    <button type="submit" style="padding: 6px 15px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer;">Delete</button>
+                </form>
+            </td>
         </tr>
         {% endfor %}
         </tbody>
