@@ -54,3 +54,93 @@ NEW FILES CREATED:
 =================
 - HARDWARE_SETUP_GUIDE.txt
 - FINAL_REQUIREMENT_65_PERCENT.txt
+
+================================================================================
+HOW TO PUSH TO GITHUB (Step by Step Guide)
+================================================================================
+
+REQUIREMENTS:
+- Git installed on your computer
+- GitHub account
+- Repository already created (e.g., Pharmacon)
+
+STEP 1: Open Command Prompt / Terminal
+-----------------------------------------
+Open your terminal (Command Prompt on Windows or Terminal on Mac/Linux)
+
+Navigate to your project folder:
+  cd C:\xampp\htdocs\pharmacon
+
+STEP 2: Check Git Status
+-------------------------
+Run this command to see what files have been changed:
+  git status
+
+You will see:
+- "modified:" (files you edited)
+- "deleted:" (files you removed)
+- "Untracked files:" (new files not yet tracked)
+
+STEP 3: Stage Your Changes
+---------------------------
+Add all changed files to staging area:
+  git add -A
+
+Or add specific files:
+  git add filename.py
+  git add templates/index.html
+
+To add a specific folder:
+  git add templates/
+
+STEP 4: Commit Your Changes
+----------------------------
+Write a message describing what you changed:
+  git commit -m "Your message here"
+
+Example:
+  git commit -m "Add search bars and fix mobile navigation"
+
+STEP 5: Push to GitHub
+----------------------
+Upload your changes to GitHub:
+  git push origin main
+
+If you're on a different branch:
+  git push origin branch_name
+
+STEP 6: Verify on GitHub
+-------------------------
+Go to your repository on GitHub (e.g., github.com/yourusername/Pharmacon)
+Refresh the page and you should see your changes.
+
+================================================================================
+COMMON GIT COMMANDS REFERENCE
+================================================================================
+
+git status                    - Check what files changed
+git add -A                    - Stage all changes
+git add filename.ext          - Stage specific file
+git commit -m "message"       - Commit with a message
+git push origin main          - Push to main branch
+git pull                      - Download latest changes from GitHub
+git log                       - View commit history
+git diff                      - See what changed in files
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Q: "Everything is up-to-date" but changes not showing?
+A: You forgot to add (git add -A) before committing
+
+Q: Merge conflict errors?
+A: Run: git pull origin main, then resolve conflicts manually
+
+Q: Login required every push?
+A: Use Git Credential Manager or set up SSH key
+
+Q: How to update local files from GitHub?
+A: Run: git pull origin main
+
+================================================================================
