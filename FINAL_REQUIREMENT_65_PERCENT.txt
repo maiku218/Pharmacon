@@ -1,0 +1,495 @@
+d================================================================================
+PHARMACON - PHARMACY MANAGEMENT SYSTEM
+FINAL REQUIREMENT DOCUMENTATION (65%)
+================================================================================
+
+Prepared for: Final Requirement Submission
+Project: PharmaCon - Pharmacy Management System
+Date: 2026-03-23
+
+================================================================================
+1. FRONTEND
+================================================================================
+
+The PharmaCon system implements a modern, responsive web-based frontend using:
+
+1.1 HTML5 Structure
+    - Semantic HTML5 elements for proper document structure
+    - Mobile-responsive viewport configuration
+    - Accessible design patterns
+
+1.2 CSS3 Styling
+    - Custom CSS with CSS variables for theming
+    - Flexbox and Grid layouts for responsive design
+    - Glass-morphism effects for modern UI
+    - Color scheme: Dark blue (#1e1e2f) primary with orange (#fb923c) accents
+    
+1.3 JavaScript (Vanilla)
+    - Fetch API for AJAX requests
+    - Chart.js for sales data visualization
+    - SweetAlert2 for interactive alerts/modals
+    - Real-time cart management
+
+1.4 Template Engine
+    - Jinja2 (Flask template engine)
+    - Template inheritance for code reuse
+    - Dynamic content rendering
+
+Frontend Features:
+- Admin Dashboard with sidebar navigation
+- Cashier POS (Point of Sale) interface
+- Product catalog with search
+- Sales charts and analytics
+- Notification system for alerts
+- Responsive design for tablet/desktop
+
+================================================================================
+2. MIDDLEWARE PROGRAM
+================================================================================
+
+2.1 Authentication Middleware
+    - @admin_required decorator: Protects admin routes
+    - @cashier_required decorator: Protects cashier routes
+    - Session-based authentication
+    - Role-based access control (admin/cashier)
+
+2.2 Context Processors
+    - inject_datetime(): Makes datetime available in all templates
+    - Automatic session management
+
+2.3 Flash Message System
+    - Temporary notification messages
+    - Categories: success, error, warning, info
+
+================================================================================
+3. APIs (Application Programming Interfaces)
+================================================================================
+
+3.1 RESTful Endpoints
+
+    PUBLIC API:
+    - GET /api/products
+        Description: Get all available products (stock > 0)
+        Response: JSON array of products
+        
+    - GET /search_product?q=<query>
+        Description: Search products by name or barcode
+        Response: JSON array of matching products
+        
+    - GET /get_product/<barcode>
+        Description: Get product details by barcode
+        Response: JSON product object
+        
+    - GET /api/search_by_name?q=<query>
+        Description: Autocomplete search by product name
+        Response: JSON array of matching products
+
+    CASHIER API:
+    - POST /complete_sale
+        Description: Process completed sale transaction
+        Input: JSON {items: [], total: float}
+        Response: JSON {success, receipt_number, total, items, date}
+        
+    - POST /cashier_logout
+        Description: Logout cashier and record logout time
+        Response: JSON {success}
+
+    ADMIN API:
+    - GET /api/notifications
+        Description: Get low stock and expiring product alerts
+        Response: JSON {low_stock: [], expiring: []}
+        
+    - GET /active_cashiers
+        Description: Get all cashiers with online status
+        Response: JSON array of cashiers
+
+3.2 JSON Data Format
+    - All APIs return JSON responses
+    - Uses Flask jsonify() for proper JSON encoding
+    - Includes error handling for failed requests
+
+================================================================================
+4. CHAPTERS 1, 2, AND 3 (PROPOSED TITLE - FUTURE TENSE)
+================================================================================
+
+CHAPTER 1: SYSTEM OVERVIEW AND INTRODUCTION
+--------------------------------------------
+Title: "PHARMACON: A COMPREHENSIVE PHARMACY MANAGEMENT SYSTEM 
+        WILL REVOLUTIONIZE RETAIL OPERATIONS"
+
+1.1 Background of the Study (Future Focus)
+    - The study WILL ADDRESS the inefficiencies in manual pharmacy 
+      inventory management
+    - The system WILL PROVIDE automated tracking of medicines and supplies
+    - The research WILL CONTRIBUTE to digital transformation in healthcare 
+      retail sector
+
+1.2 Statement of the Problem (Future Focus)
+    - The manual system WILL EXPERIENCE difficulties in tracking inventory
+    - Sales recording WILL LACK proper categorization and reporting
+    - Staff management WILL REQUIRE more efficient authentication system
+
+1.3 Objectives of the Study (Future Focus)
+    - The system WILL AUTOMATE inventory management processes
+    - The system WILL GENERATE comprehensive sales reports
+    - The system WILL IMPLEMENT role-based access control
+    - The system WILL PROVIDE real-time notifications for low stock
+
+1.4 Scope and Limitations (Future Focus)
+    - The system WILL COVER both admin and cashier operations
+    - The system WILL INCLUDE product management, sales, and reporting
+    - The system WILL USE local network for multi-user access
+
+1.5 Significance of the Study (Future Focus)
+    - The study WILL BENEFIT pharmacy owners with better inventory control
+    - The study WILL HELP staff with streamlined operations
+    - The study WILL CONTRIBUTE to academic understanding of pharmacy systems
+
+
+CHAPTER 2: REVIEW OF RELATED LITERATURE AND STUDIES
+-----------------------------------------------------
+Title: "A COMPREHENSIVE ANALYSIS OF PHARMACY SYSTEMS WILL GUIDE 
+        THE DEVELOPMENT OF PHARMACON"
+
+2.1 Theoretical Framework (Future Focus)
+    - The study WILL BE BASED on inventory management theories
+    - The system WILL FOLLOW software engineering best practices
+    - The study WILL APPLY web development principles
+
+2.2 Conceptual Framework (Future Focus)
+    - The system WILL IMPLEMENT MVC architecture
+    - The system WILL USE relational database for data management
+    - The system WILL INCORPORATE real-time notifications
+
+2.3 Related Literature (Future Focus)
+    - The research WILL REVIEW existing pharmacy management solutions
+    - The study WILL ANALYZE best practices in POS systems
+    - The project WILL INCORPORATE modern UI/UX patterns
+
+2.4 Related Studies (Future Focus)
+    - The system WILL LEARN from previous implementations
+    - The study WILL COMPARE cloud-based vs local solutions
+    - The research WILL EVALUATE different database approaches
+
+
+CHAPTER 3: METHODOLOGY
+-----------------------
+Title: "THE SYSTEM WILL BE DEVELOPED USING AGILE METHODOLOGY 
+        WITH ITERATIVE IMPLEMENTATION"
+
+3.1 Research Design (Future Focus)
+    - The study WILL USE developmental research approach
+    - The system WILL BE built using prototype methodology
+    - The project WILL FOLLOW iterative development cycles
+
+3.2 System Architecture (Future Focus)
+    - The system WILL IMPLEMENT client-server architecture
+    - The backend WILL USE Python Flask framework
+    - The frontend WILL USE HTML/CSS/JavaScript
+
+3.3 Data Flow and Processing (Future Focus)
+    - The system WILL PROCESS user requests through API endpoints
+    - The database WILL STORE all transaction data
+    - The system WILL GENERATE reports from collected data
+
+3.4 Database Design (Future Focus)
+    - The system WILL USE MySQL relational database
+    - The design WILL INCLUDE tables for products, sales, users
+    - The database WILL MAINTAIN referential integrity
+
+3.5 Security Measures (Future Focus)
+    - The system WILL IMPLEMENT password hashing
+    - The system WILL USE session-based authentication
+    - The system WILL PROTECT against SQL injection
+
+3.6 Testing Methods (Future Focus)
+    - The system WILL UNDERGO unit testing
+    - The system WILL BE tested for functionality
+    - The project WILL INCLUDE user acceptance testing
+
+================================================================================
+5. SLIDES PRESENTATION
+================================================================================
+
+NOT APPLICABLE - This document serves as the complete written 
+presentation of the project requirements. No PowerPoint slides required.
+
+================================================================================
+6. DATABASE GATEWAY
+================================================================================
+
+6.1 Database Management System
+    - MySQL (via XAMPP)
+    - MySQL will be hosted locally using XAMPP package
+    - Database name: pharmacon
+
+6.2 Database Driver
+    - Flask-MySQLdb (Python MySQL connector)
+    - Provides Python API for MySQL operations
+
+6.3 Database Schema
+    The system uses the following tables:
+    
+    a) admins
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - username (VARCHAR)
+       - password (VARCHAR, hashed)
+       - full_name (VARCHAR)
+       - created_at (DATETIME)
+    
+    b) cashiers
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - full_name (VARCHAR)
+       - username (VARCHAR)
+       - password (VARCHAR, hashed)
+       - status (VARCHAR)
+       - created_at (DATETIME)
+    
+    c) cashier_activity
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - cashier_id (INT, FOREIGN KEY)
+       - login_time (DATETIME)
+       - logout_time (DATETIME)
+       - ip_address (VARCHAR)
+    
+    d) admin_activity
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - admin_id (INT, FOREIGN KEY)
+       - action (VARCHAR)
+       - ip_address (VARCHAR)
+       - details (TEXT)
+       - activity_time (DATETIME)
+    
+    e) categories
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - category_name (VARCHAR)
+       - description (TEXT)
+    
+    f) products
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - product_name (VARCHAR)
+       - barcode (VARCHAR)
+       - category_id (INT, FOREIGN KEY)
+       - type (VARCHAR) - Medical/Non-Medical
+       - price (DECIMAL)
+       - stock (INT)
+       - expiration_date (DATE)
+       - created_at (DATETIME)
+    
+    g) stock_movements
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - product_id (INT, FOREIGN KEY)
+       - movement_type (VARCHAR) - IN/OUT
+       - quantity (INT)
+       - reason (VARCHAR)
+       - movement_date (DATETIME)
+    
+    h) sales
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - receipt_number (VARCHAR)
+       - cashier_id (INT, FOREIGN KEY)
+       - total_amount (DECIMAL)
+       - sale_status (VARCHAR)
+       - product_type (VARCHAR) - Medical/Non-Medical
+       - sale_date (DATETIME)
+    
+    i) sale_items
+       - id (INT, PRIMARY KEY, AUTO_INCREMENT)
+       - sale_id (INT, FOREIGN KEY)
+       - product_id (INT, FOREIGN KEY)
+       - quantity (INT)
+       - price (DECIMAL)
+
+6.4 Database Configuration
+    - Host: localhost
+    - User: root
+    - Password: (empty - default XAMPP)
+    - Database: pharmacon
+
+================================================================================
+7. HOSTING (CLOUD)
+================================================================================
+
+7.1 Current Setup
+    - The system is currently hosted locally using XAMPP
+    - Runs on localhost:80 (Apache web server)
+    - MySQL database on localhost:3306
+
+7.2 Network Setup (Local Network)
+    - The system CAN BE ACCESSED from other computers on the LAN
+    - Uses local IP addressing (192.168.x.x)
+    - Remote MySQL access can be configured
+
+7.3 Cloud Hosting Options (For Future Deployment)
+    The system CAN BE DEPLOYED to various cloud platforms:
+    
+    a) Railway
+       - Python support with automatic deployment
+       - MySQL add-on available
+       - Free tier available
+    
+    b) Render
+       - Python web services support
+       - Managed PostgreSQL/MySQL
+       - Free tier available
+    
+    c) Vercel
+       - Python support available
+       - Serverless deployment option
+    
+    d) Heroku
+       - Python buildpack support
+       - ClearDB MySQL add-on
+       - Free tier available
+    
+    e) Google Drive (Alternative)
+       - For documentation backup
+       - Source code storage
+
+7.4 Recommended Cloud Deployment Path
+    For 50% completion:
+    - Continue with local XAMPP for development
+    - Deploy to Railway or Render for production
+    - Use managed MySQL database from cloud provider
+
+================================================================================
+8. SYSTEM COMPLETION STATUS
+================================================================================
+
+OVERALL SYSTEM COMPLETION: 50%
+
+DETAILED BREAKDOWN:
+
+A) ADMIN MODULE (60% Complete)
+   ✓ Admin Login - 100%
+   ✓ Dashboard Overview - 100%
+   ✓ Product Management (Add/View/Delete) - 100%
+   ✓ Medical Sales Reports - 100% (FIXED)
+   ✓ Non-Medical Sales Reports - 100% (FIXED)
+   ✓ Low Stock Alerts - 100%
+   ✓ Expiring Products Alerts - 100%
+   ✓ Cashier Registration - 100%
+   ✓ Cashier Management (Edit/Delete) - 100%
+   ✓ Activity Logs (Admin & Cashier) - 100%
+   ✓ Password Change - 100%
+   - Sales Dashboard Analytics - 0% (Not Implemented)
+   - Export/Print Reports - 0% (Not Implemented)
+
+B) CASHIER MODULE (70% Complete)
+   ✓ Cashier Login - 100%
+   ✓ Product Search - 100%
+   ✓ Barcode Scanning - 100%
+   ✓ Shopping Cart - 100%
+   ✓ Complete Sale - 100%
+   ✓ Receipt Generation - 100%
+   ✓ Sales History - 100%
+   - Cashier Profile - 0% (Not Implemented)
+   - Cashier Password Change - 0% (Not Implemented)
+
+C) DATABASE (80% Complete)
+   ✓ All Tables Created - 100%
+   ✓ CRUD Operations - 100%
+   ✓ Relationships Defined - 100%
+   ✓ Data Integrity - 100%
+   - Database Backup/Restore - 0% (Not Implemented)
+   - Data Export Features - 0% (Not Implemented)
+
+D) API ENDPOINTS (55% Complete)
+   ✓ /api/products - 100%
+   ✓ /api/notifications - 100%
+   ✓ /search_product - 100%
+   ✓ /get_product - 100%
+   ✓ /complete_sale - 100%
+   - /api/sales/export - 0% (Not Implemented)
+   - /api/inventory/report - 0% (Not Implemented)
+
+E) FRONTEND/UI (55% Complete)
+   ✓ Responsive Layout - 100%
+   ✓ Template Inheritance - 100% (JUST COMPLETED)
+   ✓ Navigation System - 100%
+   ✓ Forms & Inputs - 100%
+   ✓ Charts Integration - 100%
+   - Mobile App View - 0% (Not Implemented)
+   - Dark/Light Theme Toggle - 0% (Not Implemented)
+
+F) SECURITY (40% Complete)
+   ✓ Password Hashing - 100%
+   ✓ Session Management - 100%
+   ✓ Role-based Access - 100%
+   - Two-Factor Authentication - 0% (Not Implemented)
+   - Login Attempt Tracking - 0% (Not Implemented)
+   - Audit Trail - 0% (Not Implemented)
+
+G) DEPLOYMENT (10% Complete)
+   ✓ Local Development - 100%
+   - Cloud Deployment - 0% (Not Implemented)
+   - Domain Setup - 0% (Not Implemented)
+   - SSL Certificate - 0% (Not Implemented)
+
+================================================================================
+FUTURE IMPROVEMENTS (Remaining 50%)
+================================================================================
+
+To reach 100% completion, the following features need to be implemented:
+
+1. Advanced Sales Dashboard with more analytics
+2. Data export to PDF/Excel
+3. Database backup functionality
+4. Mobile-responsive improvements
+5. Cloud deployment
+6. Cashier profile management
+7. Audit logging enhancements
+8. Two-factor authentication
+9. Email notifications for low stock
+10. Inventory restocking features
+
+================================================================================
+BACKEND STATUS: 50% COMPLETE
+================================================================================
+
+8.1 What is Working (50%)
+
+    ADMIN FUNCTIONS:
+    ✓ Admin login with authentication
+    ✓ Admin dashboard with overview
+    ✓ Product management (add, view, delete)
+    ✓ Sales reports (medical and non-medical)
+    ✓ Inventory alerts (low stock, expiring)
+    ✓ Cashier management (register, delete, edit)
+    ✓ Activity logs (admin and cashier)
+    ✓ Password change functionality
+    
+    CASHIER FUNCTIONS:
+    ✓ Cashier login with authentication
+    ✓ Product search and barcode scanning
+    ✓ Shopping cart functionality
+    ✓ Complete sale processing
+    ✓ Receipt generation
+    ✓ Sales history
+    
+    API ENDPOINTS:
+    ✓ /api/products - Product listing
+    ✓ /api/notifications - Alert notifications
+    ✓ /search_product - Product search
+    ✓ /get_product - Barcode lookup
+    ✓ /complete_sale - Sale processing
+
+8.2 What's NOT Yet Implemented (Remaining 50%)
+
+    - Sales dashboard with comprehensive analytics
+    - Stock movement history
+    - Advanced reporting features
+    - Data export capabilities
+    - Cloud deployment
+    - Mobile-responsive design improvements
+    - Email notifications
+    - Advanced user permissions
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+
+Prepared by: [Student Name]
+Course: [Course Title]
+Institution: [Institution Name]
+================================================================================

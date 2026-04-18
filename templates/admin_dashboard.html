@@ -105,6 +105,7 @@
             flex: 1; 
             padding: 40px; 
             overflow-y: auto; 
+            overflow-x: hidden;
         }
 
         .content-card {
@@ -113,6 +114,20 @@
             padding: 35px; 
             border-radius: 20px;
             box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        @media (max-width: 900px) {
+            .content-card {
+                padding: 20px;
+                border-radius: 15px;
+            }
+            
+            .content-card table {
+                display: block;
+                overflow-x: auto;
+            }
         }
 
         .logout { 
@@ -125,6 +140,47 @@
         .logout:hover { 
             background: rgba(255, 77, 77, 0.1); 
             padding-left: 35px; 
+        }
+
+        /* Mobile Menu Toggle */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            width: 45px;
+            height: 45px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            cursor: pointer;
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+        }
+        .menu-toggle svg { fill: var(--orange); }
+        
+        @media (max-width: 900px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                position: fixed;
+                height: 100%;
+                z-index: 1000;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .menu-toggle { display: flex; }
+            .content { padding: 20px; padding-top: 70px; }
+            
+            /* Sidebar Overlay */
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+            }
+            .sidebar-overlay.show { display: block; }
         }
 
         /* NOTIFICATION BELL */
@@ -270,6 +326,14 @@
     </style>
 </head>
 <body>
+
+<!-- Mobile Sidebar Overlay -->
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- Mobile Menu Toggle -->
+<button class="menu-toggle" onclick="toggleSidebar()">
+    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+</button>
 
 <!-- Notification Bell -->
 <div class="notification-container">
@@ -461,6 +525,27 @@
         const container = document.querySelector('.notification-container');
         if (!container.contains(e.target)) {
             document.getElementById('notificationDropdown').classList.remove('show');
+        }
+    });
+
+    // Mobile sidebar toggle
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('show');
+    }
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(e) {
+        const sidebar = document.querySelector('.sidebar');
+        const toggle = document.querySelector('.menu-toggle');
+        const overlay = document.querySelector('.sidebar-overlay');
+        if (window.innerWidth <= 900 && sidebar.classList.contains('open')) {
+            if (!sidebar.contains(e.target) && !toggle.contains(e.target)) {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('show');
+            }
         }
     });
 </script>

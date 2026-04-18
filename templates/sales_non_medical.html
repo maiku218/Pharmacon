@@ -46,6 +46,13 @@
     </div>
     {% endif %}
     
+    <!-- Search Bar -->
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="Search by receipt number or product name..." 
+            style="width: 100%; padding: 12px 15px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;"
+            onkeyup="searchTable()">
+    </div>
+    
     {% if sales %}
     <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
         <thead>
@@ -78,26 +85,81 @@
 if(document.getElementById('salesChart')) {
 const ctx = document.getElementById('salesChart').getContext('2d');
 new Chart(ctx, {
-    type: 'line',
+    type: 'bar',
     data: {
         labels: {{ chart_labels|tojson }},
         datasets: [{
-            label: 'Daily Sales (₱)',
+            label: 'Non-Medical Sales (₱)',
             data: {{ chart_values|tojson }},
-            borderColor: '#4ade80',
-            backgroundColor: 'rgba(74,222,128,0.1)',
-            fill: true,
-            tension: 0.4
+            backgroundColor: '#4ade80',
+            borderRadius: 6,
+            barThickness: 20
         }]
     },
     options: {
         responsive: true,
-        plugins: { legend: { display: false } },
+        maintainAspectRatio: true,
+        plugins: { 
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(15,23,42,0.95)',
+                titleColor: 'white',
+                bodyColor: 'white',
+                padding: 12,
+                cornerRadius: 8,
+                callbacks: {
+                    label: function(context) {
+                        return ' ₱' + context.parsed.y.toLocaleString('en-PH', {minimumFractionDigits: 2});
+                    }
+                }
+            }
+        },
         scales: {
-            y: { beginAtZero: true, ticks: { callback: v => '₱' + v } }
+            x: {
+                grid: { display: false },
+                ticks: { 
+                    color: '#94a3b8',
+                    maxRotation: 45,
+                    minRotation: 45,
+                    autoSkip: true,
+                    maxTicksLimit: 10
+                }
+            },
+            y: { 
+                beginAtZero: true,
+                grid: { color: 'rgba(255,255,255,0.05)' },
+                ticks: { 
+                    color: '#94a3b8',
+                    callback: function(value) {
+                        if(value >= 1000) return '₱' + (value/1000).toFixed(1) + 'k';
+                        return '₱' + value;
+                    }
+                }
+            }
         }
     }
 });
+}
+</script>
+
+<script>
+function searchTable() {
+    const input = document.getElementById('searchInput');
+    const filter = input.value.toLowerCase();
+    const table = document.querySelector('table');
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const receipt = row.cells[0].textContent.toLowerCase();
+        const product = row.cells[1].textContent.toLowerCase();
+        
+        if (receipt.includes(filter) || product.includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
 }
 </script>
 {% endblock %}

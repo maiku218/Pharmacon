@@ -1502,73 +1502,57 @@ def complete_sale():
                 UPDATE products SET stock = stock - %s WHERE id = %s
             """, (item['quantity'], item['id']))
             
-            # Auto-delete product if stock becomes 0
-            cur.execute("DELETE FROM products WHERE id = %s AND stock <= 0", (item['id'],))
-            
-            cur.execute("""
-                INSERT INTO stock_movements (product_id, movement_type, quantity, reason)
-                VALUES (%s, 'OUT', %s, 'Sale')
-            """, (item['id'], item['quantity']))
-            
-            receipt_items.append({
-                'name': item['name'],
-                'quantity': item['quantity'],
-                'price': item['price'],
-                'subtotal': item['price'] * item['quantity']
-            })
-    
-    # Process Non-Medical items - create separate sale record
-    if non_medical_items:
-        receipt_number = f"REC-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
-        receipt_numbers.append(receipt_number)
-        non_medical_total = sum(item['price'] * item['quantity'] for item in non_medical_items)
-        total_amount += non_medical_total
-        
-        cur.execute("""
-            INSERT INTO sales (receipt_number, cashier_id, total_amount, sale_status, product_type, sale_date)
-            VALUES (%s, %s, %s, 'Completed', 'Non-Medical', NOW())
-        """, (receipt_number, session['cashier_id'], non_medical_total))
-        
-        sale_id = cur.lastrowid
-        
         for item in non_medical_items:
-            cur.execute("""
-                INSERT INTO sale_items (sale_id, product_id, quantity, price)
-                VALUES (%s, %s, %s, %s)
-            """, (sale_id, item['id'], item['quantity'], item['price']))
+            receipt_number = f"REC-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+            receipt_numbers.append(receipt_number)
+            non_medical_total = sum(item['price'] * item['quantity'] for item in non_medical_items)
+            total_amount += non_medical_total
             
             cur.execute("""
-                UPDATE products SET stock = stock - %s WHERE id = %s
-            """, (item['quantity'], item['id']))
+                INSERT INTO sales (receipt_number, cashier_id, total_amount, sale_status, product_type, sale_date)
+                VALUES (%s, %s, %s, 'Completed', 'Non-Medical', NOW())
+            """, (receipt_number, session['cashier_id'], non_medical_total))
             
-            # Auto-delete product if stock becomes 0
-            cur.execute("DELETE FROM products WHERE id = %s AND stock <= 0", (item['id'],))
+            sale_id = cur.lastrowid
             
-            cur.execute("""
-                INSERT INTO stock_movements (product_id, movement_type, quantity, reason)
-                VALUES (%s, 'OUT', %s, 'Sale')
-            """, (item['id'], item['quantity']))
-            
-            receipt_items.append({
-                'name': item['name'],
-                'quantity': item['quantity'],
-                'price': item['price'],
-                'subtotal': item['price'] * item['quantity']
-            })
-    
-    mysql.connection.commit()
-    cur.close()
-    
-    # Return main receipt number (first one) for display
-    main_receipt = receipt_numbers[0] if receipt_numbers else 'N/A'
-    
-    return jsonify({
-        'success': True,
-        'receipt_number': main_receipt,
-        'total': total_amount,
-        'items': receipt_items,
-        'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    })
+            for item in non_medical_items:
+                cur.execute("""
+                    INSERT INTO sale_items (sale_id, product_id, quantity, price)
+                    VALUES (%s, %s, %s, %s)
+                """, (sale_id, item['id'], item['quantity'], item['price']))
+                
+                cur.execute("""
+                    UPDATE products SET stock = stock - %s WHERE id = %s
+                """, (item['quantity'], item['id']))
+                
+                # Auto-delete product if stock becomes 0
+                cur.execute("DELETE FROM products WHERE id = %s AND stock <= 0", (item['id'],))
+                
+                cur.execute("""
+                    INSERT INTO stock_movements (product_id, movement_type, quantity, reason)
+                    VALUES (%s, 'OUT', %s, 'Sale')
+                """, (item['id'], item['quantity']))
+                
+                receipt_items.append({
+                    'name': item['name'],
+                    'quantity': item['quantity'],
+                    'price': item['price'],
+                    'subtotal': item['price'] * item['quantity']
+                })
+        
+        mysql.connection.commit()
+        cur.close()
+        
+        # Return main receipt number (first one) for display
+        main_receipt = receipt_numbers[0] if receipt_numbers else 'N/A'
+        
+        return jsonify({
+            'success': True,
+            'receipt_number': main_receipt,
+            'total': total_amount,
+            'items': receipt_items,
+            'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
 
 # =============================
 # LOGOUT

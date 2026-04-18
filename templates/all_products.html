@@ -12,6 +12,13 @@
         <a href="{{ url_for('add_product') }}" style="display: inline-block; padding: 10px 20px; background: var(--orange); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">+ Add Product</a>
     </div>
     
+    <!-- Search Bar -->
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="Search by name, barcode, or category..." 
+            style="width: 100%; padding: 12px 15px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;"
+            onkeyup="searchTable()">
+    </div>
+    
     {% if products %}
     <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
         <thead>
@@ -76,4 +83,26 @@
     {% endfor %}
   {% endif %}
 {% endwith %}
+
+<script>
+function searchTable() {
+    const input = document.getElementById('searchInput');
+    const filter = input.value.toLowerCase();
+    const table = document.querySelector('table');
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const name = row.cells[1].textContent.toLowerCase();
+        const barcode = row.cells[2].textContent.toLowerCase();
+        const category = row.cells[3].textContent.toLowerCase();
+        
+        if (name.includes(filter) || barcode.includes(filter) || category.includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+</script>
 {% endblock %}

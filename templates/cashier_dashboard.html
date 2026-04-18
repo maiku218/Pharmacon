@@ -18,14 +18,26 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
         
-        body {
+body {
             background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-accent) 100%);
             height: 100vh;
             color: white;
             padding: 20px;
             overflow: hidden;
+            overflow-x: hidden;
             display: flex;
             flex-direction: column;
+            max-width: 100vw;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 80px 1fr 350px;
+            gap: 20px;
+            flex-grow: 1;
+            height: calc(100vh - 120px);
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         .glass {
@@ -59,6 +71,73 @@
             align-items: center;
             padding: 25px 0;
             gap: 25px;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        nav.collapsed {
+            transform: translateX(-100%);
+            opacity: 0;
+            width: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .nav-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 45px;
+            height: 45px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            cursor: pointer;
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-toggle.show { display: flex; }
+        .nav-toggle svg { fill: var(--orange); }
+        
+        @media (max-width: 900px) {
+            body { padding: 10px; }
+            .dashboard-grid { 
+                grid-template-columns: 0 1fr 280px !important; 
+                gap: 10px;
+            }
+            .dashboard-grid > * { overflow-x: hidden; }
+            
+            nav { 
+                transform: translateX(-100%); 
+                opacity: 0; 
+                width: 0; 
+                padding: 0; 
+                z-index: 1000; 
+                position: relative; 
+            }
+            nav.expanded { transform: translateX(0); opacity: 1; width: 80px; padding: 25px 0; }
+            .nav-toggle.show { display: flex; }
+            
+            .nav-overlay {
+                display: none;
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+            }
+            .nav-overlay.show { display: block; }
+            
+            aside { 
+                max-width: 100%; 
+                overflow: hidden; 
+            }
+            
+            .receipt-modal { 
+                padding: 10px; 
+            }
+            .receipt {
+                width: 100%;
+                max-width: 350px;
+            }
         }
         .nav-item {
             width: 48px; height: 48px;
@@ -73,13 +152,14 @@
 
         main { display: flex; flex-direction: column; gap: 20px; }
 
-        .top-bar { display: flex; gap: 20px; align-items: stretch; height: 70px; }
+        .stats-row { display: flex; gap: 20px; align-items: stretch; height: 70px; }
+        .search-row { display: flex; gap: 20px; align-items: stretch; height: 70px; }
         
         .stat-card { flex: 1; padding: 12px 20px; display: flex; flex-direction: column; justify-content: center; }
         .stat-label { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
         .stat-value { font-size: 22px; font-weight: 900; color: white; }
 
-        .search-container { flex: 2.5; position: relative; }
+        .search-container { flex: 1; position: relative; }
         .search-box {
             height: 100%; display: flex; align-items: center; 
             padding: 0 20px; gap: 15px; border: 2px solid var(--orange);
@@ -255,6 +335,13 @@
     </style>
 </head>
 <body>
+    <!-- Navigation Overlay -->
+    <div class="nav-overlay" onclick="toggleNav()"></div>
+    
+    <!-- Navigation Toggle Button -->
+    <button class="nav-toggle" onclick="toggleNav()">
+        <svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+    </button>
 
     <header class="glass">
         <div class="brand">PHARMA<span>CON</span></div>
@@ -281,15 +368,20 @@
         </nav>
 
         <main>
-            <div class="top-bar">
+            <div class="stats-row">
                 <div class="glass stat-card">
                     <span class="stat-label">Sales Today</span>
                     <span class="stat-value">₱{{ "{:,.2f}".format(today_total or 0) }}</span>
                 </div>
-
-                <div class="search-container">
+                <div class="glass stat-card">
+                    <span class="stat-label">Transactions</span>
+                    <span class="stat-value">{{ today_count or 0 }}</span>
+                </div>
+            </div>
+            <div class="search-row">
+                <div class="search-container" style="height: 70px;">
                     <div class="glass search-box">
-                        <svg viewBox="0 0 24 24" width="24" height="24" fill="var(--orange)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="var(--orange)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                         <input type="text" id="barcode-scanner" placeholder="SEARCH BY NAME OR BARCODE NUMBER..." autocomplete="off">
                     </div>
                     <div id="search-results" class="glass"></div>
@@ -309,11 +401,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="glass stat-card">
-                    <span class="stat-label">Transactions</span>
-                    <span class="stat-value">{{ today_count or 0 }}</span>
                 </div>
             </div>
         </main>
@@ -589,6 +676,33 @@
                 window.location.href = "/cashier_logout";
             }
         }
+
+        // Navigation toggle for mobile/minimize
+        function toggleNav() {
+            const nav = document.querySelector('nav');
+            const overlay = document.querySelector('.nav-overlay');
+            nav.classList.toggle('expanded');
+            overlay.classList.toggle('show');
+        }
+
+        // Handle window minimize - hide nav on smaller screens
+        function handleResize() {
+            const navToggle = document.querySelector('.nav-toggle');
+            const nav = document.querySelector('nav');
+            const overlay = document.querySelector('.nav-overlay');
+            if (window.innerWidth <= 900) {
+                navToggle.classList.add('show');
+                nav.classList.remove('expanded');
+                overlay.classList.remove('show');
+            } else {
+                navToggle.classList.remove('show');
+                nav.classList.remove('expanded');
+                overlay.classList.remove('show');
+            }
+        }
+        
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('load', handleResize);
     </script>
 </body>
 </html>

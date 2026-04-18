@@ -9,6 +9,13 @@
     <h1 style="margin: 0 0 10px 0; color: #1e1e2f;">Low Stock Alerts</h1>
     <p style="color: #666; margin-bottom: 20px;">Products with stock at or below {{ LOW_STOCK_THRESHOLD }} units.</p>
     
+    <!-- Search Bar -->
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="Search by name or barcode..." 
+            style="width: 100%; padding: 12px 15px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;"
+            onkeyup="searchTable()">
+    </div>
+    
     {% if products %}
     <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
         <thead>
@@ -44,4 +51,25 @@
     <p style="color: #666; margin-top: 20px;">No low stock products found.</p>
     {% endif %}
 </div>
+
+<script>
+function searchTable() {
+    const input = document.getElementById('searchInput');
+    const filter = input.value.toLowerCase();
+    const table = document.querySelector('table');
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const name = row.cells[0].textContent.toLowerCase();
+        const barcode = row.cells[1].textContent.toLowerCase();
+        
+        if (name.includes(filter) || barcode.includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+</script>
 {% endblock %}

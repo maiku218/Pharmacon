@@ -200,6 +200,11 @@ tbody tr:hover {
     <!-- RIGHT: TRANSACTION HISTORY -->
     <aside class="glass">
         <h3>Transaction History</h3>
+        
+        <!-- Search Bar -->
+        <input type="text" id="searchInput" placeholder="Search receipt number..." 
+            style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(255,255,255,0.1); color: white; font-size: 13px; outline: none;"
+            onkeyup="searchTable()">
 
         <table>
             <thead>
@@ -280,6 +285,28 @@ new Chart(ctx, {
         }
     }
 });
+</script>
+
+<script>
+function searchTable() {
+    const input = document.getElementById('searchInput');
+    const filter = input.value.toLowerCase();
+    const table = document.querySelector('table tbody');
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 0; i < rows.length; i += 2) {
+        const row = rows[i];
+        const receipt = row.cells[0].textContent.toLowerCase();
+        
+        if (receipt.includes(filter)) {
+            row.style.display = '';
+            if (rows[i + 1]) rows[i + 1].style.display = '';
+        } else {
+            row.style.display = 'none';
+            if (rows[i + 1]) rows[i + 1].style.display = 'none';
+        }
+    }
+}
 </script>
 
 </body>

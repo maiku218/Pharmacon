@@ -115,41 +115,46 @@
 <script>
 const ctx = document.getElementById('salesChart');
 new Chart(ctx, {
-    type: 'line',
+    type: 'doughnut',
     data: {
-        labels: {{ medical_labels | tojson }},
-        datasets: [
-            {
-                label: 'Medical Sales (₱)',
-                data: {{ medical_values | tojson }},
-                borderColor: '#fb923c',
-                backgroundColor: 'rgba(251,146,60,0.1)',
-                tension: 0.4,
-                fill: true
-            },
-            {
-                label: 'Non-Medical Sales (₱)',
-                data: {{ nonmedical_values | tojson }},
-                borderColor: '#4ade80',
-                backgroundColor: 'rgba(74,222,128,0.1)',
-                tension: 0.4,
-                fill: true
-            }
-        ]
+        labels: ['Medical Sales', 'Non-Medical Sales'],
+        datasets: [{
+            data: [
+                {{ medical_values|sum if medical_values else 0 }},
+                {{ nonmedical_values|sum if nonmedical_values else 0 }}
+            ],
+            backgroundColor: ['#fb923c', '#4ade80'],
+            borderWidth: 3,
+            borderColor: '#1e293b',
+            hoverOffset: 15
+        }]
     },
     options: {
         responsive: true,
+        maintainAspectRatio: true,
         plugins: {
-            legend: { labels: { color: 'white' } }
-        },
-        scales: {
-            x: {
-                ticks: { color: 'white' },
-                grid: { color: 'rgba(255,255,255,0.05)' }
+            legend: { 
+                display: true,
+                position: 'bottom',
+                labels: { 
+                    color: 'white',
+                    padding: 20,
+                    font: { size: 14 }
+                }
             },
-            y: {
-                ticks: { color: 'white', callback: function(value) { return '₱' + value; } },
-                grid: { color: 'rgba(255,255,255,0.05)' }
+            tooltip: {
+                backgroundColor: 'rgba(15,23,42,0.95)',
+                titleColor: 'white',
+                bodyColor: 'white',
+                padding: 12,
+                cornerRadius: 8,
+                callbacks: {
+                    label: function(context) {
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                        return ' ₱' + context.parsed.toLocaleString('en-PH', {minimumFractionDigits: 2}) + ' (' + percentage + '%)';
+                    }
+                }
             }
         }
     }

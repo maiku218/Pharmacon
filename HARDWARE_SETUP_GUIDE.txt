@@ -1,0 +1,423 @@
+================================================================================
+PHARMACON HARDWARE SETUP GUIDE
+Receipt Printer & Barcode Scanner Integration
+================================================================================
+
+This guide covers connecting a thermal receipt printer and barcode scanner
+to your Pharmacon POS system.
+
+================================================================================
+PART 1: HARDWARE OVERVIEW
+================================================================================
+
+RECEIPT PRINTER (Thermal Printer)
+---------------------------------
+Most common models for POS systems:
+- Epson TM-T88 Series (TM-T88III, TM-T88IV, TM-T88V, TM-T88VI)
+- Epson TM-T20 series
+- Star TSP100 series
+- Citizen CT-S310
+- Xprinter XP-58 series
+
+Connection types:
+1. USB - Direct connection to computer
+2. Serial (RS232) - Traditional COM port
+3. Network (Ethernet/WiFi) - For networked printers
+
+BARCODE SCANNER
+-------------
+Two types:
+1. USB Scanner (HID mode) - Acts as keyboard, outputs barcode as keystrokes
+2. Serial/USB Scanner (COM port) - Outputs via serial communication
+
+Most budget scanners (like the ones on Shopee/TikTok) work in HID/keyboard mode.
+
+================================================================================
+PART 2: RECEIPT PRINTER SETUP
+================================================================================
+
+STEP 1: CONNECT THE PRINTER
+-------------------------
+1. Power off both printer and computer
+2. Connect printer to computer:
+   - USB: Plug USB cable into printer and computer USB port
+   - Network: Connect ethernet cable, note the IP address
+   - Serial: Connect serial cable to COM port
+3. Power on the printer
+4. Install printer driver (if required)
+
+STEP 2: INSTALL PRINTER DRIVER (Windows)
+------------------------------------
+For USB/Ethernet printers:
+1. Download driver from manufacturer website
+2. Run installer
+3. When prompted, select the connection type
+
+For network printers:
+1. Go to Windows Settings > Devices > Printers
+2. Click "Add a printer"
+3. Select "TCP/IP address or hostname"
+4. Enter printer IP address
+5. Follow installation wizard
+
+STEP 3: INSTALL PYTHON LIBRARY
+----------------------------
+Install the ESC/POS library:
+
+    pip install escpos-thermal
+
+For USB support:
+    pip install escpos-thermal[usb]
+
+For serial support:
+    pip install escpos-thermal[serial]
+
+STEP 4: FIND PRINTER IDENTIFIERS
+-----------------------------
+For USB printers (find vendor/product IDs):
+    Open Device Manager > Universal Serial Bus devices
+    Look for your printer (e.g., EPSON TM-T88IV)
+
+Common vendor IDs:
+- Epson: 0x04b8
+- Star: 0x0519
+- Citizen: 0x2730
+
+For network printers:
+    Note the IP address (e.g., 192.168.1.100)
+
+STEP 5: ADD PRINTING CODE TO APP.PY
+----------------------------------
+Add this at the top of app.py:
+
+    from escpos.printer import Usb, Network, Serial
+
+Add a print function (example for USB printer):
+
+    def print_receipt(receipt_data):
+        '''
+        Print a receipt to thermal printer
+        receipt_data: dict with keys: items, subtotal, tax, total, receipt_number
+        '''
+        try:
+            # USB printer example (adjust vendor/product IDs)
+            # p = Usb(0x04b8, 0x0202, 0, profile="TM-T88IV")
+            
+            # Network printer example
+            p = Network("192.168.1.100", profile="TM-T88IV")
+            
+            # Print header
+            p.text("PHARMACON PHARMACY\n")
+            p.text("=" * 32 + "\n")
+            p.text(f"Receipt: {receipt_data.get('receipt_number', '')}\n")
+            p.text(f"Date: {receipt_data.get('date', '')}\n")
+            p.text("-" * 32 + "\n")
+            
+            # Print items
+            for item in receipt_data.get('items', []):
+                name = item.get('name', '')[:20]
+                qty = item.get('quantity', 0)
+                price = item.get('price', 0)
+                total = qty * price
+                p.text(f"{name}\n")
+                p.text(f"  {qty} x P{price:.2f} = P{total:.2f}\n")
+            
+            # Print totals
+            p.text("-" * 32 + "\n")
+            p.text(f"Subtotal: P{receipt_data.get('subtotal', 0):.2f}\n")
+            p.text(f"Tax: P{receipt_data.get('tax', 0):.2f}\n")
+            p.text(f"TOTAL: P{receipt_data.get('total', 0):.2f}\n")
+            p.text("=" * 32 + "\n")
+            
+            # Print footer
+            p.text("Thank you!\n")
+            p.text("\n\n")
+            
+            # Cut paper
+            p.cut()
+            p.close()
+            
+            return True
+        except Exception as e:
+            print(f"Print error: {e}")
+            return False
+
+STEP 6: ADD PRINT ROUTE TO APP.PY
+-------------------------------
+Add after the sales route:
+
+    @app.route('/print_receipt/<int:sale_id>')
+    @cashier_required
+    def print_receipt_route(sale_id):
+        cur = mysql.connection.cursor()
+        
+        # Get sale details
+        cur.execute("""
+            SELECT s.id, s.receipt_number, s.total_amount, s.sale_date,
+                   s.payment_method, s.amount_paid, s.change_given
+            FROM sales s
+            WHERE s.id = %s
+        """, (sale_id,))
+        sale = cur.fetchone()
+        
+        if not sale:
+            flash("Receipt not found", "error")
+            return redirect(url_for('cashier_dashboard'))
+        
+        # Get sale items
+        cur.execute("""
+            SELECT p.product_name, si.quantity, si.price
+            FROM sale_items si
+            JOIN products p ON si.product_id = p.id
+            WHERE si.sale_id = %s
+        """, (sale_id,))
+        items = cur.fetchall()
+        cur.close()
+        
+        # Format items for printing
+        receipt_items = []
+        for item in items:
+            receipt_items.append({
+                'name': item[0],
+                'quantity': item[1],
+                'price': float(item[2])
+            })
+        
+        subtotal = float(sale[2]) / 1.12  # Assuming 12% tax
+        tax = float(sale[2]) - subtotal
+        
+        receipt_data = {
+            'receipt_number': sale[1],
+            'date': str(sale[3]),
+            'items': receipt_items,
+            'subtotal': subtotal,
+            'tax': tax,
+            'total': float(sale[2])
+        }
+        
+        # Try to print
+        success = print_receipt(receipt_data)
+        
+        if success:
+            flash("Receipt printed successfully", "success")
+        else:
+            flash("Failed to print receipt. Please check printer.", "error")
+        
+        return redirect(url_for('cashier_dashboard'))
+
+================================================================================
+PART 3: BARCODE SCANNER SETUP
+================================================================================
+
+KEYBOARD MODE SCANNER (Most Common)
+-----------------------------------
+This type requires NO additional code. The scanner acts as a 
+keyboard and types the barcode followed by Enter.
+
+How it works:
+1. Click on the barcode input field in your app
+2. Scan the barcode
+3. The scanner types the barcode number and presses Enter
+4. Your JavaScript handles the Enter key to trigger search
+
+Your scanner might be this type!
+
+To use keyboard mode scanner:
+1. Connect scanner to computer USB port
+2. Open Notepad or any text field
+3. Scan a barcode
+4. You should see the number appear
+
+STEP 1: TEST YOUR SCANNER
+------------------------
+1. Open a text editor (Notepad, Word)
+2. Click in the text area
+3. Press the trigger on scanner to scan a barcode
+4. The barcode number + Enter should appear
+5. If it works, your scanner is in HID/keyboard mode
+
+STEP 2: ADD SCANNER SUPPORT TO CASHIER DASHBOARD
+---------------------------------------------
+JavaScript in cashier_dashboard.html to detect scanner input:
+
+    <script>
+    let scanBuffer = '';
+    let scanTimeout;
+    
+    // Listen for fast barcode input (scanner types fast, keyboard is slower)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            if (scanBuffer.length > 0 && scanBuffer.length < 20) {
+                // Likely scanned a barcode
+                e.preventDefault();
+                document.getElementById('barcode-input').value = scanBuffer;
+                scanBuffer = '';
+                
+                // Trigger your existing search function
+                searchProduct();
+            }
+        } else if (e.key.length === 1) {
+            // Add character to buffer
+            scanBuffer += e.key;
+            
+            // Clear buffer after 50ms of inactivity (keyboard is slower)
+            clearTimeout(scanTimeout);
+            scanTimeout = setTimeout(() => {
+                scanBuffer = '';
+            }, 50);
+        }
+    });
+    </script>
+
+The existing cashier_dashboard searches by barcode when Enter is pressed.
+Your scanner likely works with this already!
+
+SERIAL/COM PORT SCANNER (More advanced)
+--------------------------------
+If your scanner has a serial/COM connection:
+
+1. Install pyserial:
+    pip install pyserial
+
+2. Add scanner code to app.py:
+
+    import serial
+
+    def read_scanner():
+        '''
+        Read barcode from serial scanner
+        '''
+        try:
+            ser = serial.Serial('COM3', 9600, timeout=1)
+            barcode = ser.readline().decode('utf-8').strip()
+            ser.close()
+            return barcode
+        except:
+            return None
+
+3. Add scanner route:
+
+    @app.route('/api/scan_barcode', methods=['POST'])
+    @cashier_required
+    def scan_barcode():
+        barcode = request.form.get('barcode') or read_scanner()
+        if not barcode:
+            return jsonify({'success': False, 'message': 'No barcode scanned'})
+        
+        # Search for product
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM products WHERE barcode = %s", (barcode,))
+        product = cur.fetchone()
+        cur.close()
+        
+        if product:
+            return jsonify({'success': True, 'product': product})
+        else:
+            return jsonify({'success': False, 'message': 'Product not found'})
+
+================================================================================
+PART 4: INTEGRATING BOTH DEVICES
+================================================================================
+
+COMBINED WORKFLOW
+---------------
+1. Scanner: Cashier scans product barcode
+2. System: Auto-searches product by barcode
+3. System: Adds product to cart
+4. System: Calculates total
+5. Cashier: Completes sale
+6. Printer: Prints receipt automatically or on button click
+
+UPDATING THE SALES ROUTE
+---------------------
+In your existing sales process, add receipt printing after successful sale:
+
+    @app.route('/process_sale', methods=['POST'])
+    @cashier_required
+    def process_sale():
+        # ... existing sale processing code ...
+        
+        # After successful sale, try to print receipt
+        receipt_data = {
+            'receipt_number': receipt_number,
+            'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'items': cart_items,
+            'subtotal': subtotal,
+            'tax': tax,
+            'total': total
+        }
+        
+        print_receipt(receipt_data)
+        
+        return redirect(url_for('cashier_dashboard'))
+
+================================================================================
+PART 5: TROUBLESHOOTING
+================================================================================
+
+PRINTER ISSUES
+-------------
+Problem: Printer not printing
+Solutions:
+1. Check printer is powered on
+2. Check paper is loaded
+3. Verify connection (USB/network)
+4. Check printer is set as default
+5. Try running: python -c "from escpos.printer import Usb; p = Usb(0x04b8, 0x0202); p.text('test'); p.cut()"
+
+Problem: Printer prints but cuts wrong
+Solutions:
+1. Update printer profile in code
+2. Try different profiles: "TM-T88III", "TM-T88IV", "TM-T88V"
+
+Problem: Unicode/text issues
+Solution:
+    p.text("Hello".encode('cp1252', 'replace'))
+
+SCANNER ISSUES
+-------------
+Problem: Scanner not scanning
+Solutions:
+1. Test in Notepad first
+2. Check cursor is in input field
+3. Try clicking the field before scanning
+
+Problem: Scanner adds characters slowly
+Solution:
+- Your scanner might not be HID mode
+- Check scanner documentation
+
+Problem: Multiple scans at once
+Solution:
+- Add debounce logic in JavaScript
+- Wait 100ms between scans
+
+================================================================================
+PART 6: QUICK START CHECKLIST
+================================================================================
+
+FOR USB RECEIPT PRINTER:
+[x] Connect printer to USB
+[x] Install printer driver
+[x] Run: pip install escpos-thermal[usb]
+[x] Note vendor/product IDs from Device Manager
+[x] Add print function to app.py
+[x] Test printing with simple script
+
+FOR KEYBOARD SCANNER:
+[x] Connect scanner to USB
+[x] Test scanning in Notepad
+[x] Works automatically with existing Enter-key search
+[x] Ensure barcode field is focused before scanning
+[x] No code changes needed!
+
+FOR NETWORK PRINTER:
+[x] Connect printer to network
+[x] Note printer IP address
+[x] Run: pip install escpos-thermal
+[x] Add network IP in print function
+[x] Test printing
+
+================================================================================
+END OF GUIDE
+================================================================================
